@@ -27,6 +27,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
                   'groups',
                   )
         
+        
 class UserProfileCreateSerializer(serializers.ModelSerializer):
     """Сериализатор создания Профиля
     """
