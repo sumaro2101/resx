@@ -13,6 +13,9 @@ psycopg2-binary = "^2.9.9"
 python-dotenv = "^1.0.1"
 djangorestframework-simplejwt = "^5.3.1"
 drf-yasg = "^1.21.7"
+django-phonenumbers = "^1.0.1"
+django-phonenumber-field = "^8.0.0"
+django-filter = "^24.2"
 
 
 [build-system]
