@@ -94,3 +94,15 @@ class UserProfileCreateSerializer(serializers.ModelSerializer):
         
         return self._create_user(ModelClass, password, validated_data)
         
+
+class UserProfileUpdateSerializer(serializers.ModelSerializer):
+    """Редактирование профиля пользователя
+    """
+    class Meta:  
+        model = get_user_model()
+        fields = ('username',
+                  'first_name',
+                  'last_name',
+                  'email',
+                  'phone',
+                  )
