@@ -23,7 +23,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
                   'email',
                   'phone',
                   'last_login',
-                  'date_joined',
                   'is_staff',
                   'groups',
                   )
