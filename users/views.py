@@ -38,7 +38,7 @@ class UserCreateProfileAPI(generics.CreateAPIView):
     
     
 class UserUpdateProfileAPI(generics.UpdateAPIView):
-    """Редактировае пользователя
+    """Редактирование пользователя
     """
     queryset = get_user_model().objects.get_queryset()
     serializer_class = UserProfileUpdateSerializer
@@ -46,7 +46,7 @@ class UserUpdateProfileAPI(generics.UpdateAPIView):
 
 
 class UserDeleteProfuleAPI(generics.DestroyAPIView):
-    """Изменения активности пользователя
+    """Изменение активности пользователя
     """    
     queryset = get_user_model().objects.get_queryset()
     permission_classes = [IsCurrentUser | IsSuperUser]

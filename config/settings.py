@@ -34,6 +34,13 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 
+# Swagger
+
+SWAGGER_SETTINGS = {
+    'VALIDATOR_URL': 'http://127.0.0.1:8000'
+}
+
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -43,6 +50,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    
+    # redoc
+    'drf_yasg',
     
     # django-phone,
     'phonenumber_field',
