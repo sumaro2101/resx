@@ -54,6 +54,9 @@ INSTALLED_APPS = [
     # redoc
     'drf_yasg',
     
+    #celery
+    'django_celery_beat',
+    
     # django-phone,
     'phonenumber_field',
     
@@ -62,6 +65,7 @@ INSTALLED_APPS = [
     
     # custom apps
     'users.apps.UsersConfig',
+    'habits.apps.HabitsConfig',
 ]
 
 MIDDLEWARE = [

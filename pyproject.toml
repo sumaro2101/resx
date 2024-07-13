@@ -16,6 +16,9 @@ drf-yasg = "^1.21.7"
 django-phonenumbers = "^1.0.1"
 django-phonenumber-field = "^8.0.0"
 django-filter = "^24.2"
+celery = "^5.4.0"
+django-celery-beat = "^2.6.0"
+python-crontab = "^3.2.0"
 
 
 [build-system]
