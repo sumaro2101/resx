@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
 
-from django_celery_beat.models import CrontabSchedule
+from django_celery_beat.models import CrontabSchedule, IntervalSchedule
 
 
 class Habit(models.Model):
@@ -25,7 +25,8 @@ class Habit(models.Model):
     time_to_do = models.ForeignKey(CrontabSchedule,
                                    verbose_name='время выполнения привычки',
                                    on_delete=models.CASCADE,
-                                   help_text='Установленное время в которое будет выполнена привычка',
+                                   help_text='Установленное время в которое будет выполнена привычка,\
+                                       пример использования: 8:40, 00:30, 18:40',
                                    )
     
     action = models.TextField(verbose_name='действие',
@@ -33,7 +34,8 @@ class Habit(models.Model):
                               )
     
     is_nice_habit = models.BooleanField(verbose_name='признак приятной привычки',
-                                        help_text='Поле обозначающее приятная ли эта привычка',
+                                        help_text='Поле обозначающее приятная ли эта привычка,\
+                                            если привычка приятная она может быть только последней в цепочке',
                                         )
     
     related_habit = models.ForeignKey("self",
@@ -47,21 +49,25 @@ class Habit(models.Model):
                                       null=True,
                                       )
     
-    periodic = models.DurationField(verbose_name='периодичность',
+    periodic = models.ForeignKey(IntervalSchedule,
+                                verbose_name='периодичность',
                                     help_text='Установленная периодичность для выполнения,\
-                                        устанавливается так же для отправки напоминаний',
-                                    default=timedelta(days=1),
-                                    )
+                                        устанавливается так же для отправки напоминаний.\
+                                            Пример использования: 180/0/0 - 180 дней, 0/20/0 - 20 часов, 0/0/30 - 30 минут,\
+                                                только одно из значений может быть указано, остальное "0"',
+                                on_delete=models.CASCADE,
+                                )
     
     reward = models.TextField(verbose_name='возраграждение',
-                              help_text='Возраграждение за выполнение привычки',
+                              help_text='Вознаграждение за выполнение привычки',
                               blank=True,
                               null=True,
                               )
     
     time_to_done = models.DurationField(verbose_name='время выполнения',
                                         help_text='Неоходимое время для выполнения привычки, не должно быть более чем\
-                                            120 сек. или 2 минуты',
+                                            120 сек. или 2 минуты,\
+                                                Пример использования: 1:30, 2:00, 0:30',
                                         )
     
     is_published = models.BooleanField(default=False,
