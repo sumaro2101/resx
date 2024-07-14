@@ -1,7 +1,11 @@
 from rest_framework import serializers
 
 from habits.models import Habit
-from habits.validators import ValidateInterval, ValidateDateDay, ValidateDateMinute
+from habits.validators import (ValidateInterval,
+                               ValidateDateDay,
+                               ValidateDateMinute,
+                               ValidatorOneValueInput,
+                               )
 from habits.handlers import HandleInterval, HandleTimeToDo, HandleTimeToDone
 
 
@@ -27,6 +31,7 @@ class HabitCreateSearilizer(serializers.ModelSerializer):
         validators = (ValidateInterval('periodic'),
                       ValidateDateDay('time_to_do'),
                       ValidateDateMinute('time_to_done'),
+                      ValidatorOneValueInput(['related_habit', 'reward']),
                       )
     
     def create(self, validated_data):

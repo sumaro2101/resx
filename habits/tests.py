@@ -1,7 +1,10 @@
 from rest_framework.test import APITestCase
 from rest_framework.validators import ValidationError
+from rest_framework import status
 
 from django.test import TestCase
+from django.contrib.auth import get_user_model
+from django.urls import reverse
 
 from django_celery_beat.models import IntervalSchedule, CrontabSchedule
 
@@ -11,8 +14,9 @@ from habits.handlers import HandleInterval, HandleTimeToDo, HandleTimeToDone
 from habits.validators import (ValidateInterval,
                                ValidateDateTwoPart,
                                ValidateDateDay,
-                               ValidateDateMinute,
+                               ValidateDateMinute, ValidatorOneValueInput,
                                )
+from habits.models import Habit
 
 
 class TestHandlersHabits(TestCase):
@@ -405,4 +409,97 @@ class TestValidatorsHabits(TestCase):
         result = validator(value)
         
         self.assertEqual(result, None)
+        
+    def test_validator_one_value_input(self):
+        """Проверка валидатора для выбора только одного поля
+        """
+        # Проверка на число    
+        with self.assertRaises(TypeError):
+            ValidatorOneValueInput(223)
+        
+        # Проверка на список с числом  
+        with self.assertRaises(TypeError):
+            ValidatorOneValueInput(['str', 223])
+            
+        # Проверка списка < 2
+        with self.assertRaises(KeyError):
+            ValidatorOneValueInput(['str',])
+            
+        # Проверка списка > 2
+        with self.assertRaises(KeyError):
+            ValidatorOneValueInput(['str', 'str', 'str'])
+
+        validate = ValidatorOneValueInput(['first', 'second'])
+        # Проверка корректности заполнения
+        self.assertEqual(validate.fields, ['first', 'second'])
+        # Проверка корректности проверки правильных аргументов
+        self.assertIsNone(validate({'second': 1}))
+        
+        
+class TestAPIHabit(APITestCase):
+    """Тесты API привычек
+    """
+    
+    def setUp(self) -> None:
+        self.user = get_user_model().objects.create_user('user',
+                                                         'user@gmail.com',
+                                                         'usertestuser',
+                                                         )
+        self.client.force_authenticate(user=self.user)
+        
+    def test_create_habit(self):
+        """Тест создания привычки
+        """
+        url = reverse('habits:habit_create')
+        data = {
+            'place': 'test_place',
+            'time_to_do': '18:41',
+            'action': 'test_action',
+            'is_nice_habit': False,
+            'periodic': '2/0/0',
+            'reward': 'test_reward',
+            'time_to_done': '1:32',
+        }
+        response = self.client.post(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data, {"place": "test_place",
+                                        "time_to_do": "41 18 * * * (m/h/dM/MY/d) UTC",
+                                        "action": "test_action",
+                                        "is_nice_habit": False,
+                                        "related_habit": None,
+                                        "periodic": "каждые 2 None",
+                                        "reward": "test_reward",
+                                        "time_to_done": "0:01:32",
+                                        "is_published": False
+                                        })
+
+    def test_create_habit_bad_request_input_two_values(self):
+        """Тест проверки выхождения двух полей которые не могут быть вместе
+        """
+        cron = CrontabSchedule.objects.create(hour=18, minute=41)
+        interval = IntervalSchedule.objects.create(every=1, period='DAYS')
+        habit = Habit.objects.create(owner=self.user,
+                                     place='test_place',
+                                     time_to_do=cron,
+                                     action='test_actions',
+                                     is_nice_habit=False,
+                                     periodic=interval,
+                                     reward='test_reward',
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     )
+        url = reverse('habits:habit_create')
+        data = {
+            'place': 'test_place',
+            'time_to_do': '18:41',
+            'action': 'test_action',
+            'is_nice_habit': True,
+            'related_habit': 1,
+            'periodic': '2/0/0',
+            'reward': 'test_reward',
+            'time_to_done': '1:32',
+        }
+        response = self.client.post(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         

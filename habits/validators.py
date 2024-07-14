@@ -1,5 +1,6 @@
 from rest_framework.validators import ValidationError
-from typing import Any, Tuple
+
+from typing import Any, Callable, List, Tuple
 
 
 class ValidateInterval:
@@ -78,7 +79,7 @@ class ValidateInterval:
         
     def __call__(self, attrs) -> Any:
         checked_values = [
-                value for field, value in attrs.items() if field in self.field
+                value for field, value in attrs.items() if field == self.field
                 and not None
             ]
         if checked_values:
@@ -149,7 +150,7 @@ class ValidateDateDay:
         
     def __call__(self, attrs) -> Any:
         checked_values = [
-                value for field, value in attrs.items() if field in self.field
+                value for field, value in attrs.items() if field == self.field
                 and not None
             ]
         if checked_values:
@@ -191,10 +192,32 @@ class ValidateDateMinute:
         
     def __call__(self, attrs) -> Any:
         checked_values = [
-                value for field, value in attrs.items() if field in self.field
+                value for field, value in attrs.items() if field == self.field
                 and not None
             ]
         if checked_values:
             minute, second = ValidateDateTwoPart(checked_values[0]).checked_values
             self._check_minute_second_values(int(minute), int(second))
             
+
+class ValidatorOneValueInput:
+    """Валидатор который проверяет что из двух полей только одно из них выбрано
+    """    
+    def __init__(self, fields: List[str]) -> None:
+        if not isinstance(fields, list):
+            raise TypeError('Поле "fields" должно было List')
+        if len(fields) != 2:
+            raise KeyError('Неоходимо указать два значения для проверки')
+        for field in fields:
+             if not isinstance(field, str):
+                raise TypeError('Аргумент "field" может быть только строкой')
+        self.fields = fields
+        
+    def __call__(self, attrs: Any) -> Callable:
+        checked_values = [
+                value for field, value in attrs.items() if field in self.fields
+                and not None
+            ]
+        if len(checked_values) > 1:
+            raise ValidationError(f'{self.fields[0]} и {self.fields[-1]} не могут быть определенны вместе')
+        
