@@ -5,6 +5,8 @@ from habits.validators import (ValidateInterval,
                                ValidateDateDay,
                                ValidateDateMinute,
                                ValidatorOneValueInput,
+                               ValidatorNiceHabit,
+                               ValidatorRalatedHabit
                                )
 from habits.handlers import HandleInterval, HandleTimeToDo, HandleTimeToDone
 
@@ -31,6 +33,8 @@ class HabitCreateSearilizer(serializers.ModelSerializer):
         validators = (ValidateInterval('periodic'),
                       ValidateDateDay('time_to_do'),
                       ValidateDateMinute('time_to_done'),
+                      ValidatorNiceHabit('is_nice_habit', ['is_nice_habit', 'reward', 'related_habit']),
+                      ValidatorRalatedHabit('related_habit'),
                       ValidatorOneValueInput(['related_habit', 'reward']),
                       )
     

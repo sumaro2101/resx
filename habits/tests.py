@@ -1,6 +1,7 @@
 from rest_framework.test import APITestCase
 from rest_framework.validators import ValidationError
 from rest_framework import status
+from rest_framework.exceptions import ErrorDetail
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -14,7 +15,10 @@ from habits.handlers import HandleInterval, HandleTimeToDo, HandleTimeToDone
 from habits.validators import (ValidateInterval,
                                ValidateDateTwoPart,
                                ValidateDateDay,
-                               ValidateDateMinute, ValidatorOneValueInput,
+                               ValidateDateMinute,
+                               ValidatorOneValueInput,
+                               ValidatorNiceHabit,
+                               ValidatorRalatedHabit,
                                )
 from habits.models import Habit
 
@@ -198,8 +202,10 @@ class TestValidatorsHabits(TestCase):
         value = {'interval': '7/20/0'}
         validator = ValidateInterval('interval')
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['interval'], 'В интервале нельзя указывать одновременно день или час или минуты')
             
     def test_interval_validator_empty_value(self):
         """Тест валидатора интервала на пустое значение
@@ -207,8 +213,11 @@ class TestValidatorsHabits(TestCase):
         value = {'interval': '0/0/0'}
         validator = ValidateInterval('interval')
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['interval'], 'Указанный интервал не может быть пустым, нужно указать одно из значений')
+    
         
     def test_interval_validator_space_in_value(self):
         """Тест валидатора интервала на пробел в значении
@@ -216,8 +225,10 @@ class TestValidatorsHabits(TestCase):
         value = {'interval': '0/ 10/0'}
         validator = ValidateInterval('interval')
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['interval'], '0/ 10/0 имеет пробелы, это не допустимо')
     
     def test_interval_validator_duck_interval_instance(self):
         """Тест валидатора на не правильный интервал
@@ -229,17 +240,25 @@ class TestValidatorsHabits(TestCase):
         
         validator = ValidateInterval('interval')
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value1)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['interval'], '0/10/0/0 должен быть интервалом по типу "7/0/0" что значит интервал из 7 дней')
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value2)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['interval'], '0/10/ должен быть интервалом по типу "7/0/0" что значит интервал из 7 дней')
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value3)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['interval'], '0/10/b должен быть интервалом по типу "7/0/0" что значит интервал из 7 дней')
             
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value4)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['interval'], '[] должен быть строкой')
             
     def test_interval_duck_value_interval(self):
         """Тест валидатора на не коректные значения в интервале
@@ -251,17 +270,25 @@ class TestValidatorsHabits(TestCase):
         
         validator = ValidateInterval('interval')
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value1)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['interval'], 'Значение day может быть больше или равно нулю, либо не более чем 7')
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value2)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['interval'], 'Значение hour не может быть меньше 0 или больше чем 59')
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value3)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['interval'], 'Значение minute не может быть меньше 0 или больше чем 59')
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value4)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['interval'], 'Значение day может быть больше или равно нулю, либо не более чем 7')
             
     def test_interval_validator_entry_type(self):
         """Тест валидатора интервала на входящее имя поля
@@ -295,8 +322,10 @@ class TestValidatorsHabits(TestCase):
         """
         value ='10:0 0'
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             ValidateDateTwoPart(value)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['10:0 0'], '10:0 0 имеет пробелы, это не допустимо')
     
     def test_two_part_validator_duck_value(self):
         """Тест валидатора двух частей на плохие значения
@@ -307,20 +336,30 @@ class TestValidatorsHabits(TestCase):
         value4 = ':'
         value5 = 'dd:00'
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             ValidateDateTwoPart(value1)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['0/10/0'], '0/10/0 не является корректным для данного поля, необходимо использовать разделитель ":" и стандартный вид должен быть: "18:30"')
             
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             ValidateDateTwoPart(value2)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['0:10:0'], '0:10:0 не является корректным для данного поля, необходимо использовать разделитель ":" и стандартный вид должен быть: "18:30"')
             
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             ValidateDateTwoPart(value3)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0][':0'], 'Значения в времени могут быть только циферными')
             
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             ValidateDateTwoPart(value4)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0][':'], 'Значения в времени могут быть только циферными')
             
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             ValidateDateTwoPart(value5)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['dd:00'], 'Значения в времени могут быть только циферными')
       
     def test_two_part_validator_pass_test(self):
         """Тест валидатора двух частей на валидность данных
@@ -349,17 +388,25 @@ class TestValidatorsHabits(TestCase):
         
         validator = ValidateDateDay('date')
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value1)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['date'], 'Значение hour не может быть меньше 0 или больше 23')
             
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value2)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['date'], 'Значение hour не может быть меньше 0 или больше 23')
             
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value3)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['date'], 'Значение minute не может быть меньше 0 или больше 59')
             
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value4)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['00:dd'], 'Значения в времени могут быть только циферными')
             
     def test_date_day_validator_pass_test(self):
         """Тест валидатора даты дня на валидность данных
@@ -389,17 +436,25 @@ class TestValidatorsHabits(TestCase):
         
         validator = ValidateDateMinute('date')
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value1)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['date'], 'Было полученно более двух минут!')
             
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value2)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['date'], 'Значение minute не корректное')
             
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value3)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['date'], 'Значение second не корректное')
             
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ValidationError) as ex:
             validator(value4)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['00:dd'], 'Значения в времени могут быть только циферными')
             
     def test_date_minute_validator_pass_test(self):
         """Тест валидатора даты минут на валидность данных
@@ -435,6 +490,140 @@ class TestValidatorsHabits(TestCase):
         # Проверка корректности проверки правильных аргументов
         self.assertIsNone(validate({'second': 1}))
         
+    def test_nice_habit_validator_entry_type(self):
+        """Тест валидатора приятной привычки на входящее поле
+        """        
+        with self.assertRaises(TypeError):
+            ValidatorNiceHabit('some', 1)
+            
+        with self.assertRaises(TypeError):
+            ValidatorNiceHabit(1)
+        
+        with self.assertRaises(ValueError):
+            ValidatorNiceHabit([], [])
+            
+        with self.assertRaises(ValueError):
+            ValidatorNiceHabit('some', ['some', 'some'])
+            
+        with self.assertRaises(ValueError):
+            ValidatorNiceHabit('some', ['first', 'second', 'third'])
+    
+    def test_nice_habit_pass_test(self):
+        """Тест валидатора прияной привычки при валидных данных
+        """
+        data = {
+            'nice_habbit': True,
+            'reward' : None,
+            'related_habit': None,
+        }
+        validator = ValidatorNiceHabit('nice_habbit', ['nice_habbit', 'reward', 'related_habit'])
+        result = validator(data)
+        self.assertEqual(result, None)
+        
+    def test_not_nice_habit(self):
+        """Тест валидатора если привычка не является приятной
+        """
+        data = {
+            'nice_habbit': False,
+            'reward' : 'reward',
+            'related_habit': None,
+        }      
+        validator = ValidatorNiceHabit('nice_habbit', ['nice_habbit', 'reward', 'related_habit'])
+        result = validator(data)
+        self.assertEqual(result, None)
+        
+    def test_nice_habit_duck_data(self):
+        """Тест валидатора приятной привычки на не валидные данные
+        """
+        data = {
+            'nice_habbit': True,
+            'reward' : 'reward',
+            'related_habit': None,
+        }      
+        validator = ValidatorNiceHabit('nice_habbit', ['nice_habbit', 'reward', 'related_habit'])
+        
+        with self.assertRaises(ValidationError) as ex:
+            validator(data)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['nice_habbit'], 'При указании приятной привычки награду и связаную привычку указывать нельзя')
+    
+    def test_nice_habit_duck_data_2(self):
+        """Тест валидатора приятной привычки на не валидные данные
+        """
+        data = {
+            'nice_habbit': True,
+            'reward' : None,
+            'related_habit': 'Have',
+        }      
+        validator = ValidatorNiceHabit('nice_habbit', ['nice_habbit', 'reward', 'related_habit'])
+        with self.assertRaises(ValidationError) as ex:
+            validator(data)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['nice_habbit'], 'При указании приятной привычки награду и связаную привычку указывать нельзя')
+            
+    def test_related_habit_nice(self):
+        """Проверка валидатора на вхождение плохих аргументов
+        """        
+        with self.assertRaises(TypeError):
+            ValidatorRalatedHabit([])
+            
+        with self.assertRaises(TypeError):
+            ValidatorRalatedHabit(1)
+        
+    def test_related_habit_nice_pass_test(self):
+        """Проверка валидатора если значение верное
+        """
+        user = get_user_model().objects.create_user('user',
+                                                         'user@gmail.com',
+                                                         'usertestuser',
+                                                         )
+        cron = CrontabSchedule.objects.create(hour=18, minute=41)
+        interval = IntervalSchedule.objects.create(every=1, period='DAYS')
+        habit = Habit.objects.create(owner=user,
+                                     place='test_place',
+                                     time_to_do=cron,
+                                     action='test_actions',
+                                     is_nice_habit=True,
+                                     periodic=interval,
+                                     reward=None,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     )
+        data = {
+            'ralated_habit': habit,
+        }
+        validator = ValidatorRalatedHabit('ralated_habit')
+        result = validator(data)
+        
+        self.assertEqual(result, None)
+        
+    def test_retaled_habit_duck_value(self):
+        """Проверка валидатора если значение не верное
+        """
+        user = get_user_model().objects.create_user('user',
+                                                         'user@gmail.com',
+                                                         'usertestuser',
+                                                         )
+        cron = CrontabSchedule.objects.create(hour=18, minute=41)
+        interval = IntervalSchedule.objects.create(every=1, period='DAYS')
+        habit = Habit.objects.create(owner=user,
+                                     place='test_place',
+                                     time_to_do=cron,
+                                     action='test_actions',
+                                     is_nice_habit=False,
+                                     periodic=interval,
+                                     reward='reward',
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     )
+        data = {
+            'related_habit': habit,
+        }
+        validator = ValidatorRalatedHabit('related_habit')
+        
+        with self.assertRaises(ValidationError) as ex:
+            validator(data)
+        the_exception = ex.exception
+        self.assertEqual(the_exception.args[0]['related_habit'], 'Связаная привычка может быть только приятной')
+        
         
 class TestAPIHabit(APITestCase):
     """Тесты API привычек
@@ -446,11 +635,11 @@ class TestAPIHabit(APITestCase):
                                                          'usertestuser',
                                                          )
         self.client.force_authenticate(user=self.user)
+        self.url = reverse('habits:habit_create')
         
     def test_create_habit(self):
         """Тест создания привычки
         """
-        url = reverse('habits:habit_create')
         data = {
             'place': 'test_place',
             'time_to_do': '18:41',
@@ -460,7 +649,7 @@ class TestAPIHabit(APITestCase):
             'reward': 'test_reward',
             'time_to_done': '1:32',
         }
-        response = self.client.post(url, data, format='json')
+        response = self.client.post(self.url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data, {"place": "test_place",
@@ -483,23 +672,68 @@ class TestAPIHabit(APITestCase):
                                      place='test_place',
                                      time_to_do=cron,
                                      action='test_actions',
-                                     is_nice_habit=False,
+                                     is_nice_habit=True,
                                      periodic=interval,
-                                     reward='test_reward',
+                                     reward=None,
                                      time_to_done=timedelta(minutes=1, seconds=32),
                                      )
-        url = reverse('habits:habit_create')
+        data = {
+            'place': 'test_place',
+            'time_to_do': '18:41',
+            'action': 'test_action',
+            'is_nice_habit': False,
+            'related_habit': habit.pk,
+            'periodic': '2/0/0',
+            'reward': 'test_reward',
+            'time_to_done': '1:32',
+        }
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(str(response.data['error'][0]), 'related_habit и reward не могут быть определенны вместе')
+        
+    def test_create_habit_bad_request_related_habbit_is_not_nice(self):
+        """Тест проверки выхождения связанной модели с полезной привычкой
+        """
+        cron = CrontabSchedule.objects.create(hour=18, minute=41)
+        interval = IntervalSchedule.objects.create(every=1, period='DAYS')
+        habit = Habit.objects.create(owner=self.user,
+                                     place='test_place',
+                                     time_to_do=cron,
+                                     action='test_actions',
+                                     is_nice_habit=False,
+                                     periodic=interval,
+                                     reward='reward',
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     )
+        data = {
+            'place': 'test_place',
+            'time_to_do': '18:41',
+            'action': 'test_action',
+            'is_nice_habit': False,
+            'related_habit': habit.pk,
+            'periodic': '2/0/0',
+            'reward': None,
+            'time_to_done': '1:32',
+        }
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(str(response.data['related_habit'][0]), 'Связаная привычка может быть только приятной')
+        
+    def test_create_habit_bad_request_nice_habit(self):
+        """Тест проверки приятной привычки с неправильными аргументами
+        """        
         data = {
             'place': 'test_place',
             'time_to_do': '18:41',
             'action': 'test_action',
             'is_nice_habit': True,
-            'related_habit': 1,
             'periodic': '2/0/0',
-            'reward': 'test_reward',
+            'reward': 'reward',
             'time_to_done': '1:32',
         }
-        response = self.client.post(url, data, format='json')
-        
+        response = self.client.post(self.url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(str(response.data['is_nice_habit'][0]), 'При указании приятной привычки награду и связаную привычку указывать нельзя')
         

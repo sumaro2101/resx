@@ -16,13 +16,13 @@ class ValidateInterval:
         """
         # Проверка пустых значений в интервале
         if not any((day, hour, minute)):
-                raise ValidationError('Указанный интервал не может быть пустым, нужно указать одно из значений')
+                raise ValidationError({self.field: 'Указанный интервал не может быть пустым, нужно указать одно из значений'})
         
         # Проверка на множественное указание значений в интервале
         have_value = False
         for value in (day, hour, minute):
             if value and have_value:
-                raise ValidationError('В интервале нельзя указывать одновременно день или час или минуты')
+                raise ValidationError({self.field: 'В интервале нельзя указывать одновременно день или час или минуты'})
             elif value and not have_value:
                 have_value = True
                 
@@ -36,13 +36,13 @@ class ValidateInterval:
             Tuple[int]: Возращает кортеж из интервала
         """
         if not isinstance(value, str):
-            raise ValidationError(f'{value} должен быть строкой')
+            raise ValidationError({self.field: f'{value} должен быть строкой'})
         if value.find(' ') >= 0:
-            raise ValidationError(f'{value} имеет пробелы, это не допустимо')
+            raise ValidationError({self.field: f'{value} имеет пробелы, это не допустимо'})
         try:
             day, hour, minute = [int(value) for value in value.split('/')]
         except:
-            raise ValidationError(f'{value} должен быть интервалом по типу "7/0/0" что значит интервал из 7 дней')
+            raise ValidationError({self.field: f'{value} должен быть интервалом по типу "7/0/0" что значит интервал из 7 дней'})
         self._check_interval_values(day, hour, minute)
         
         return day, hour, minute
@@ -71,11 +71,11 @@ class ValidateInterval:
         minute = self.__minute(minute)
         
         if not day:
-            raise ValidationError(f'Значение day может быть больше или равно нулю, либо не более чем 7')
+            raise ValidationError({self.field: f'Значение day может быть больше или равно нулю, либо не более чем 7'})
         if not hour:
-            raise ValidationError(f'Значение hour не корректное')
+            raise ValidationError({self.field: f'Значение hour не может быть меньше 0 или больше чем 59'})
         if not minute:
-            raise ValidationError(f'Значение minute не корректное')
+            raise ValidationError({self.field: f'Значение minute не может быть меньше 0 или больше чем 59'})
         
     def __call__(self, attrs) -> Any:
         checked_values = [
@@ -93,7 +93,8 @@ class ValidateDateTwoPart:
     def __init__(self, date: str) -> None:
         if not isinstance(date, str):
             raise TypeError(f'{date} должен быть строкой')
-        self.checked_values = self._check_two_part(date)
+        self.date = date
+        self.checked_values = self._check_two_part(self.date)
         
     def _check_two_part(self, date: str) -> Tuple[int]:
         """Проверка времени состоящих из двух частей
@@ -105,16 +106,16 @@ class ValidateDateTwoPart:
             Tuple[int]: В случае успеха возращает кортеж из чисел
         """        
         if date.find(' ') >= 0:
-            raise ValidationError(f'{date} имеет пробелы, это не допустимо')
+            raise ValidationError({self.date: f'{date} имеет пробелы, это не допустимо'})
         try:
             first, second = date.split(':')
         except:
-            raise ValidationError(f'{date} не является корректным для данного поля, необходимо использовать разделитель ":" и стандартный вид должен быть: "18:30"')
+            raise ValidationError({self.date: f'{date} не является корректным для данного поля, необходимо использовать разделитель ":" и стандартный вид должен быть: "18:30"'})
         
         try:
             first, second = [int(value) for value in [first, second]]
         except:
-            raise ValidationError('Значения в времени могут быть только циферными')
+            raise ValidationError({self.date: 'Значения в времени могут быть только циферными'})
         
         return first, second
     
@@ -144,9 +145,9 @@ class ValidateDateDay:
         minute = self.__minute(minute)
         
         if not hour:
-            raise ValidationError(f'Значение hour не корректное')
+            raise ValidationError({self.field: 'Значение hour не может быть меньше 0 или больше 23'})
         if not minute:
-            raise ValidationError(f'Значение minute не корректное')
+            raise ValidationError({self.field: 'Значение minute не может быть меньше 0 или больше 59'})
         
     def __call__(self, attrs) -> Any:
         checked_values = [
@@ -178,16 +179,16 @@ class ValidateDateMinute:
     
     def _is_less_two_minutes(self, minute: int, second: int) -> None:
         if minute >= 2 and second:
-            raise ValidationError('Было полученно более двух минут!')
+            raise ValidationError({self.field: 'Было полученно более двух минут!'})
         
     def _check_minute_second_values(self, minute: int, second: int) -> None:
         valide_minute = self.__minute(minute)
         valide_second = self.__second(second)
         
         if not valide_minute:
-            raise ValidationError(f'Значение minute не корректное')
+            raise ValidationError({self.field: f'Значение minute не корректное'})
         if not valide_second:
-            raise ValidationError(f'Значение second не корректное')
+            raise ValidationError({self.field: f'Значение second не корректное'})
         self._is_less_two_minutes(minute, second)
         
     def __call__(self, attrs) -> Any:
@@ -216,8 +217,55 @@ class ValidatorOneValueInput:
     def __call__(self, attrs: Any) -> Callable:
         checked_values = [
                 value for field, value in attrs.items() if field in self.fields
-                and not None
+                and value is not None
             ]
         if len(checked_values) > 1:
-            raise ValidationError(f'{self.fields[0]} и {self.fields[-1]} не могут быть определенны вместе')
+            raise ValidationError({'error': f'{self.fields[0]} и {self.fields[-1]} не могут быть определенны вместе'})
         
+
+class ValidatorNiceHabit:
+    """Валидация приятной привычки
+    Первым аргументом нужно указать поле по которому будет определяться является ли объект приятной привычкой
+    Второй это список из двух полей которые должны контроллироваться
+    """
+    def __init__(self, nice_habbit: str, fields: List[str]) -> None:
+        if not isinstance(fields, List):
+            raise TypeError('Поле "fields" должно было List')
+        if len(fields) != 3:
+            raise ValueError('Неоходимо указать три значения для проверки')
+        if not isinstance(nice_habbit, str):
+            raise TypeError('Поле related_field должен быть str')
+        if not nice_habbit in fields:
+            raise ValueError(f'Значение {nice_habbit}, должен быть в составе {fields}')
+        for field in fields:
+                if not isinstance(field, str):
+                    raise TypeError(f'Аргумент {field} может быть только строкой')
+        self.nice_habbit = nice_habbit
+        self.fields = fields
+        
+    def __call__(self, attrs) -> Any:
+        checked_values = {
+                field: bool(value) for field, value in attrs.items() if field in self.fields
+        }
+        if checked_values and checked_values.get(self.nice_habbit):
+            if any((value for field, value in checked_values.items() if field not in self.nice_habbit)):
+                raise ValidationError({self.nice_habbit: 'При указании приятной привычки награду и связаную привычку указывать нельзя'})
+    
+
+class ValidatorRalatedHabit:
+    """Валидатор связаной привычки
+    """    
+    def __init__(self, field: str) -> None:
+        if not isinstance(field, str):
+            raise TypeError(f'{field} должен быть строкой')
+        self.field = field
+        
+    def __call__(self, attrs) -> Any:
+        checked_values = [
+                value for field, value in attrs.items() if field == self.field
+                and not None
+            ]
+        if checked_values:
+            if not checked_values[0].is_nice_habit:
+                raise ValidationError({self.field: 'Связаная привычка может быть только приятной'})
+            
