@@ -1,7 +1,6 @@
 from rest_framework.test import APITestCase
 from rest_framework.validators import ValidationError
 from rest_framework import status
-from rest_framework.exceptions import ErrorDetail
 
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -19,6 +18,7 @@ from habits.validators import (ValidateInterval,
                                ValidatorOneValueInput,
                                ValidatorNiceHabit,
                                ValidatorRalatedHabit,
+                               ValidatorRelatedHabitSomePublished,
                                )
 from habits.models import Habit
 
@@ -636,6 +636,8 @@ class TestAPIHabit(APITestCase):
                                                          )
         self.client.force_authenticate(user=self.user)
         self.url = reverse('habits:habit_create')
+        self.cron = CrontabSchedule.objects.create(hour=18, minute=41)
+        self.interval = IntervalSchedule.objects.create(every=1, period='DAYS')
         
     def test_create_habit(self):
         """Тест создания привычки
@@ -653,27 +655,24 @@ class TestAPIHabit(APITestCase):
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data, {"place": "test_place",
-                                        "time_to_do": "41 18 * * * (m/h/dM/MY/d) UTC",
+                                        "time_to_do": "18:41",
                                         "action": "test_action",
                                         "is_nice_habit": False,
                                         "related_habit": None,
-                                        "periodic": "каждые 2 None",
+                                        "periodic": "every 2 days",
                                         "reward": "test_reward",
                                         "time_to_done": "0:01:32",
-                                        "is_published": False
                                         })
 
     def test_create_habit_bad_request_input_two_values(self):
-        """Тест проверки выхождения двух полей которые не могут быть вместе
+        """Тест проверки вхождения двух полей которые не могут быть вместе
         """
-        cron = CrontabSchedule.objects.create(hour=18, minute=41)
-        interval = IntervalSchedule.objects.create(every=1, period='DAYS')
         habit = Habit.objects.create(owner=self.user,
                                      place='test_place',
-                                     time_to_do=cron,
+                                     time_to_do=self.cron,
                                      action='test_actions',
                                      is_nice_habit=True,
-                                     periodic=interval,
+                                     periodic=self.interval,
                                      reward=None,
                                      time_to_done=timedelta(minutes=1, seconds=32),
                                      )
@@ -693,16 +692,14 @@ class TestAPIHabit(APITestCase):
         self.assertEqual(str(response.data['error'][0]), 'related_habit и reward не могут быть определенны вместе')
         
     def test_create_habit_bad_request_related_habbit_is_not_nice(self):
-        """Тест проверки выхождения связанной модели с полезной привычкой
+        """Тест проверки вхождения связанной модели с полезной привычкой
         """
-        cron = CrontabSchedule.objects.create(hour=18, minute=41)
-        interval = IntervalSchedule.objects.create(every=1, period='DAYS')
         habit = Habit.objects.create(owner=self.user,
                                      place='test_place',
-                                     time_to_do=cron,
+                                     time_to_do=self.cron,
                                      action='test_actions',
                                      is_nice_habit=False,
-                                     periodic=interval,
+                                     periodic=self.interval,
                                      reward='reward',
                                      time_to_done=timedelta(minutes=1, seconds=32),
                                      )
@@ -736,4 +733,156 @@ class TestAPIHabit(APITestCase):
         response = self.client.post(self.url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(str(response.data['is_nice_habit'][0]), 'При указании приятной привычки награду и связаную привычку указывать нельзя')
+
+    def test_create_habit_bad_request_related_habbit_is_some_publish(self):
+        """Тест проверки вхождения связанной модели не с одинаковой публичностью
+        """
+        habit = Habit.objects.create(owner=self.user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=True,
+                                     periodic=self.interval,
+                                     reward=None,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=False,
+                                     )
+        data = {
+            'place': 'test_place',
+            'time_to_do': '18:41',
+            'action': 'test_action',
+            'is_nice_habit': False,
+            'related_habit': habit.pk,
+            'periodic': '2/0/0',
+            'reward': None,
+            'time_to_done': '1:32',
+            'is_published': True,
+        }
+        response = self.client.post(self.url, data, format='json')
         
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(str(response.data['related_habit'][0]), 'Связанная привычка и текущая не могут иметь разные статусы публичности')
+        
+    def test_create_habit_with_related_habit(self):
+        """Тест проверки вхождения связанной модели с одинаковой публичностью
+        """
+        habit = Habit.objects.create(owner=self.user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=True,
+                                     periodic=self.interval,
+                                     reward=None,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=False,
+                                     )
+        data = {
+            'place': 'test_place',
+            'time_to_do': '18:41',
+            'action': 'test_action',
+            'is_nice_habit': False,
+            'related_habit': habit.pk,
+            'periodic': '2/0/0',
+            'reward': None,
+            'time_to_done': '1:32',
+            'is_published': False,
+        }
+        response = self.client.post(self.url, data, format='json')
+        count_in_bd = Habit.objects.count()
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(count_in_bd, 2)
+    
+    def test_retrieve_habit_private(self):
+        """Тест отказа в просмотре приватной привычки
+        """
+        user = get_user_model().objects.create_user('owner', 'owner@gmail.com', 'ownerpass', phone='+7(900)9001000')
+        habit = Habit.objects.create(owner=user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=True,
+                                     periodic=self.interval,
+                                     reward=None,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=False,
+                                     )
+        url = reverse('habits:habit_retrieve', kwargs={'pk': habit.pk})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        
+    def test_habit_bad_related_habit(self):
+        """Тест привязки чужой привычки
+        """
+        user = get_user_model().objects.create_user('owner', 'owner@gmail.com', 'ownerpass', phone='+7(900)9001000')    
+        related = Habit.objects.create(owner=user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=True,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        data = {
+            'place': 'test_place',
+            'time_to_do': '18:41',
+            'action': 'test_action',
+            'is_nice_habit': False,
+            'related_habit': related.pk,
+            'periodic': '2/0/0',
+            'time_to_done': '1:32',
+            'is_published': True,
+        }
+        response = self.client.post(self.url, data)
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        
+    def test_list_of_habits_personal(self):
+        """Тест списка привычек связанных с пользователем
+        """        
+        url = reverse('habits:habit_list_private')
+        user = get_user_model().objects.create_user('owner', 'owner@gmail.com', 'ownerpass', phone='+7(900)9001000')    
+        Habit.objects.create(owner=user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=True,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        
+        Habit.objects.create(owner=self.user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=True,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        
+        responce = self.client.get(url)
+        self.assertEqual(responce.status_code, status.HTTP_200_OK)
+        self.assertEqual(responce.data['count'], 1)
+        
+    def test_habit_retrieve_block_view(self):
+        """Тест блокировки доступа к привычке не являющейся личной
+        """
+        user = get_user_model().objects.create_user('owner', 'owner@gmail.com', 'ownerpass', phone='+7(900)9001000')    
+        habit = Habit.objects.create(owner=user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=True,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        url = reverse('habits:habit_retrieve', kwargs={'pk': habit.pk})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(str(response.data['published']), 'Данную привычку может просматривать только владелец')

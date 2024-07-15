@@ -263,9 +263,36 @@ class ValidatorRalatedHabit:
     def __call__(self, attrs) -> Any:
         checked_values = [
                 value for field, value in attrs.items() if field == self.field
-                and not None
+                and value != None
             ]
         if checked_values:
             if not checked_values[0].is_nice_habit:
                 raise ValidationError({self.field: 'Связаная привычка может быть только приятной'})
             
+
+class ValidatorRelatedHabitSomePublished:
+    """Валидатор одинаковых статусов публичности
+    """
+    def __init__(self, related_habbit: str, fields: List[str]) -> None:
+        if not isinstance(fields, List):
+            raise TypeError('Поле "fields" должно было List')
+        if len(fields) != 2:
+            raise ValueError('Неоходимо указать три значения для проверки')
+        if not isinstance(related_habbit, str):
+            raise TypeError('Поле related_field должен быть str')
+        if not related_habbit in fields:
+            raise ValueError(f'Значение {related_habbit}, должен быть в составе {fields}')
+        for field in fields:
+                if not isinstance(field, str):
+                    raise TypeError(f'Аргумент {field} может быть только строкой')
+        self.related_habbit = related_habbit
+        self.fields = fields
+            
+    def __call__(self, attrs) -> Any:
+        checked_values = {
+                field: value for field, value in attrs.items() if field in self.fields
+        }
+        related_habbit = checked_values.get(self.related_habbit)
+        if checked_values and related_habbit:
+            if checked_values.get(self.fields[-1] if self.fields[-1] != self.related_habbit else self.fields[0]) != related_habbit.is_published:
+                raise ValidationError({self.related_habbit: 'Связанная привычка и текущая не могут иметь разные статусы публичности'})
