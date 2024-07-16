@@ -891,7 +891,7 @@ class TestAPIHabit(APITestCase):
         """Тест списка привычек связанных с пользователем
         """        
         url = reverse('habits:habit_list')
-        user = get_user_model().objects.create_user('owner', 'owner@gmail.com', 'ownerpass', phone='+7(900)9001000')    
+        user = get_user_model().objects.create_user('owner', 'owner@gmail.com', 'ownerpass', phone='+7(900)9001000')
         Habit.objects.create(owner=user,
                                      place='test_place',
                                      time_to_do=self.cron,
@@ -915,4 +915,177 @@ class TestAPIHabit(APITestCase):
         responce = self.client.get(url)
         self.assertEqual(responce.status_code, status.HTTP_200_OK)
         self.assertEqual(responce.data['count'], 2)
+        
+    def test_habit_update(self):
+        """Тест обновления привычки
+        """
+        habit = Habit.objects.create(owner=self.user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=False,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        url = reverse('habits:habit_update', kwargs={'pk': habit.pk})
+        data = {
+            'place': 'update_place',
+            'time_to_do': '20:30',
+            'action': 'update_action',
+            'periodic': '4/0/0',
+            'reward': 'update_reward',
+            'time_to_done': '0:59',
+            'is_published': False,
+        }
+        responce = self.client.patch(url, data)
+        
+        self.assertEqual(responce.status_code, status.HTTP_200_OK)
+        self.assertEqual(responce.data['place'], 'update_place')
+        self.assertEqual(responce.data['time_to_done'], '0:00:59')
+    
+    def test_habit_update_change_raleted_published(self):
+        """Тест изменения публичности у связанной привычки при изменении у основной
+        """        
+        ralated = Habit.objects.create(owner=self.user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=True,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        
+        habit = Habit.objects.create(owner=self.user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=False,
+                                     related_habit=ralated,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        
+        data_habit = {
+            'is_published': False
+        }
+        
+        url_habit = reverse('habits:habit_update', kwargs={'pk': habit.pk})
+        
+        responce_habit = self.client.patch(url_habit, data_habit)
+        
+        habit = Habit.objects.get(pk=habit.pk)
+        ralated = Habit.objects.get(pk=ralated.pk)
+        self.assertEqual(responce_habit.status_code, status.HTTP_200_OK)
+        self.assertEqual(habit.is_published, False)
+        self.assertEqual(ralated.is_published, False)
+        
+        data_ralated = {
+            'is_published': True
+        }
+        
+        url_ralated = reverse('habits:habit_update', kwargs={'pk': ralated.pk})
+        
+        responce_ralated = self.client.patch(url_ralated, data_ralated)
+        habit = Habit.objects.get(pk=habit.pk)
+        ralated = Habit.objects.get(pk=ralated.pk)
+        self.assertEqual(responce_ralated.status_code, status.HTTP_200_OK)
+        self.assertEqual(ralated.is_published, True)
+        self.assertEqual(habit.is_published, True)
+        
+    def test_habit_update_block_permission(self):
+        """Тест блокировки доступа к изменению привычки если не является владельцем
+        """
+        user = get_user_model().objects.create_user('owner', 'owner@gmail.com', 'ownerpass', phone='+7(900)9001000')
+        habit = Habit.objects.create(owner=user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=False,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        url = reverse('habits:habit_update', kwargs={'pk': habit.pk})
+        data = {
+            'place': 'update_place',
+            'time_to_do': '20:30',
+            'action': 'update_action',
+            'periodic': '4/0/0',
+            'reward': 'update_reward',
+            'time_to_done': '0:59',
+            'is_published': False,
+        }
+        responce = self.client.patch(url, data)
+        
+        self.assertEqual(responce.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_habit_delete(self):
+        """Тест удаления привычки
+        """
+        habit = Habit.objects.create(owner=self.user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=False,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        url = reverse('habits:habit_delete', kwargs={'pk': habit.pk})
+        responce = self.client.delete(url)
+        
+        self.assertEqual(responce.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Habit.objects.count(), 0)
+
+    def test_habit_delete_save_related(self):
+        """Тест удаления основной и сохранение связанной
+        """
+        related = Habit.objects.create(owner=self.user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=True,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        
+        habit = Habit.objects.create(owner=self.user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=False,
+                                     related_habit=related,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        url = reverse('habits:habit_delete', kwargs={'pk': related.pk})
+        responce = self.client.delete(url)
+        habit = Habit.objects.get(pk=habit.pk)
+        
+        self.assertEqual(responce.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Habit.objects.count(), 1)
+        self.assertEqual(habit.related_habit, None)
+        
+    def test_habit_update_block_permission(self):
+        """Тест блокировки доступа к удалению привычки если не является владельцем
+        """
+        user = get_user_model().objects.create_user('owner', 'owner@gmail.com', 'ownerpass', phone='+7(900)9001000')
+        habit = Habit.objects.create(owner=user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=False,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        url = reverse('habits:habit_delete', kwargs={'pk': habit.pk})
+        responce = self.client.delete(url)
+        
+        self.assertEqual(responce.status_code, status.HTTP_403_FORBIDDEN)
         
