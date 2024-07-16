@@ -1,10 +1,13 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 
+from django.db.models import Q
+
 from habits.models import Habit
 from habits.serializers import (HabitCreateSearilizer,
                                 HabitRetieveSearilizer,
                                 )
+from habits.permissions import IsCurrentUser
 
 
 class HabitCreateAPIView(generics.CreateAPIView):
@@ -29,18 +32,9 @@ class HabitRetieveAPIView(generics.RetrieveAPIView):
     """
     queryset = Habit.objects.get_queryset()
     serializer_class = HabitRetieveSearilizer
-    
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if not request.user == instance.owner:
-            response = {
-                'published': 'Данную привычку может просматривать только владелец'
-            }
-            return Response(data=response, status=status.HTTP_403_FORBIDDEN)
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
-    
-    
+    permission_classes = [IsCurrentUser]
+
+
 class HabitListAPIView(generics.ListAPIView):
     """Список публичных привычек
     """
@@ -56,5 +50,5 @@ class HabitUserListAPIView(generics.ListAPIView):
     
     def get_queryset(self):
         queryset = super().get_queryset()
-        return queryset.filter(owner=self.request.user)
+        return queryset.filter(Q(owner=self.request.user))
     

@@ -55,9 +55,9 @@ class HabitCreateSearilizer(serializers.ModelSerializer):
         return validated_data
 
 
-class HabitRetieveSearilizer(serializers.ModelSerializer):
-    """Сеарилизатор вывода привычки
-    """    
+class HabitRelatedRetieveSearilizer(serializers.ModelSerializer):
+    """Сеарилизатор вывода связанной привычки
+    """
     
     
     class Meta:
@@ -73,3 +73,25 @@ class HabitRetieveSearilizer(serializers.ModelSerializer):
                   'time_to_done',
                   'is_published',
                   )
+
+
+class HabitRetieveSearilizer(serializers.ModelSerializer):
+    """Сеарилизатор вывода привычки
+    """
+    related_habit = HabitRelatedRetieveSearilizer(source='related', many=True)
+    
+    
+    class Meta:
+        model = Habit
+        fields = ('pk',
+                  'place',
+                  'time_to_do',
+                  'action',
+                  'is_nice_habit',
+                  'related_habit',
+                  'periodic',
+                  'reward',
+                  'time_to_done',
+                  'is_published',
+                  )
+    

@@ -886,3 +886,33 @@ class TestAPIHabit(APITestCase):
         
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(str(response.data['published']), 'Данную привычку может просматривать только владелец')
+        
+    def test_list_of_habits_published(self):
+        """Тест списка привычек связанных с пользователем
+        """        
+        url = reverse('habits:habit_list')
+        user = get_user_model().objects.create_user('owner', 'owner@gmail.com', 'ownerpass', phone='+7(900)9001000')    
+        Habit.objects.create(owner=user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=True,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        
+        Habit.objects.create(owner=self.user,
+                                     place='test_place',
+                                     time_to_do=self.cron,
+                                     action='test_actions',
+                                     is_nice_habit=True,
+                                     periodic=self.interval,
+                                     time_to_done=timedelta(minutes=1, seconds=32),
+                                     is_published=True,
+                                     )
+        
+        responce = self.client.get(url)
+        self.assertEqual(responce.status_code, status.HTTP_200_OK)
+        self.assertEqual(responce.data['count'], 2)
+        
