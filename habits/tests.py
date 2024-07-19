@@ -5,10 +5,11 @@ from rest_framework import status
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 
-from django_celery_beat.models import IntervalSchedule, CrontabSchedule
+from django_celery_beat.models import IntervalSchedule, CrontabSchedule, PeriodicTask
 
-from datetime import timedelta
+from datetime import timedelta, datetime, date
 
 from habits.handlers import HandleInterval, HandleTimeToDo, HandleTimeToDone
 from habits.validators import (ValidateInterval,
@@ -21,6 +22,7 @@ from habits.validators import (ValidateInterval,
                                ValidatorRelatedHabitSomePublished,
                                )
 from habits.models import Habit
+from habits.services import construct_periodic, construct_time_to_task
 
 
 class TestHandlersHabits(TestCase):
@@ -34,9 +36,9 @@ class TestHandlersHabits(TestCase):
         result_hours = HandleInterval.get_interval('0/23/0')
         result_minutes = HandleInterval.get_interval('0/0/59')
 
-        self.assertEqual(result_days, IntervalSchedule.objects.get(every=30, period='DAYS'))
-        self.assertEqual(result_hours, IntervalSchedule.objects.get(every=23, period='HOURS'))
-        self.assertEqual(result_minutes, IntervalSchedule.objects.get(every=59, period='MINUTES'))
+        self.assertEqual(result_days, IntervalSchedule.objects.get(every=30, period='days'))
+        self.assertEqual(result_hours, IntervalSchedule.objects.get(every=23, period='hours'))
+        self.assertEqual(result_minutes, IntervalSchedule.objects.get(every=59, period='minutes'))
     
     def test_interval_exists_in_db(self):
         """Тест интервала автоматического создание интервала в БД
@@ -69,7 +71,7 @@ class TestHandlersHabits(TestCase):
         result = HandleInterval.get_interval(None)
         
         self.assertEqual(result.every, 1)
-        self.assertEqual(result.period, 'DAYS')
+        self.assertEqual(result.period, 'days')
         
     def test_intervar_duck_argument(self):
         """Тест не верного аргумента
@@ -96,7 +98,7 @@ class TestHandlersHabits(TestCase):
         # Получение валидных данных обработчику
         result = HandleInterval.get_interval(value['interval'])
         
-        self.assertEqual((result.every, result.period), (20, 'HOURS'))
+        self.assertEqual((result.every, result.period), (20, 'hours'))
         
     def test_time_to_do(self):
         """Тест проверки времени действия
@@ -578,7 +580,7 @@ class TestValidatorsHabits(TestCase):
                                                          'usertestuser',
                                                          )
         cron = CrontabSchedule.objects.create(hour=18, minute=41)
-        interval = IntervalSchedule.objects.create(every=1, period='DAYS')
+        interval = IntervalSchedule.objects.create(every=1, period='days')
         habit = Habit.objects.create(owner=user,
                                      place='test_place',
                                      time_to_do=cron,
@@ -604,7 +606,7 @@ class TestValidatorsHabits(TestCase):
                                                          'usertestuser',
                                                          )
         cron = CrontabSchedule.objects.create(hour=18, minute=41)
-        interval = IntervalSchedule.objects.create(every=1, period='DAYS')
+        interval = IntervalSchedule.objects.create(every=1, period='days')
         habit = Habit.objects.create(owner=user,
                                      place='test_place',
                                      time_to_do=cron,
@@ -637,7 +639,7 @@ class TestAPIHabit(APITestCase):
         self.client.force_authenticate(user=self.user)
         self.url = reverse('habits:habit_create')
         self.cron = CrontabSchedule.objects.create(hour=18, minute=41)
-        self.interval = IntervalSchedule.objects.create(every=1, period='DAYS')
+        self.interval = IntervalSchedule.objects.create(every=1, period='days')
         
     def test_create_habit(self):
         """Тест создания привычки
@@ -663,6 +665,7 @@ class TestAPIHabit(APITestCase):
                                         "reward": "test_reward",
                                         "time_to_done": "0:01:32",
                                         })
+        self.assertEqual(PeriodicTask.objects.count(), 1)
 
     def test_create_habit_bad_request_input_two_values(self):
         """Тест проверки вхождения двух полей которые не могут быть вместе
@@ -690,6 +693,7 @@ class TestAPIHabit(APITestCase):
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(str(response.data['error'][0]), 'related_habit и reward не могут быть определенны вместе')
+        self.assertEqual(PeriodicTask.objects.count(), 0)
         
     def test_create_habit_bad_request_related_habbit_is_not_nice(self):
         """Тест проверки вхождения связанной модели с полезной привычкой
@@ -733,6 +737,7 @@ class TestAPIHabit(APITestCase):
         response = self.client.post(self.url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(str(response.data['is_nice_habit'][0]), 'При указании приятной привычки награду и связаную привычку указывать нельзя')
+        self.assertEqual(PeriodicTask.objects.count(), 0)
 
     def test_create_habit_bad_request_related_habbit_is_some_publish(self):
         """Тест проверки вхождения связанной модели не с одинаковой публичностью
@@ -885,7 +890,7 @@ class TestAPIHabit(APITestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(str(response.data['published']), 'Данную привычку может просматривать только владелец')
+        self.assertEqual(str(response.data), 'Данную привычку может просматривать только владелец')
         
     def test_list_of_habits_published(self):
         """Тест списка привычек связанных с пользователем
@@ -939,7 +944,6 @@ class TestAPIHabit(APITestCase):
             'is_published': False,
         }
         responce = self.client.patch(url, data)
-        
         self.assertEqual(responce.status_code, status.HTTP_200_OK)
         self.assertEqual(responce.data['place'], 'update_place')
         self.assertEqual(responce.data['time_to_done'], '0:00:59')
@@ -1071,7 +1075,7 @@ class TestAPIHabit(APITestCase):
         self.assertEqual(Habit.objects.count(), 1)
         self.assertEqual(habit.related_habit, None)
         
-    def test_habit_update_block_permission(self):
+    def test_habit_delete_block_permission(self):
         """Тест блокировки доступа к удалению привычки если не является владельцем
         """
         user = get_user_model().objects.create_user('owner', 'owner@gmail.com', 'ownerpass', phone='+7(900)9001000')
@@ -1088,4 +1092,221 @@ class TestAPIHabit(APITestCase):
         responce = self.client.delete(url)
         
         self.assertEqual(responce.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class TestPeriodicTask(APITestCase):
+    """Тесты преодических задач
+    """    
+    def setUp(self):
+        self.user = get_user_model().objects.create_user('owner',
+                                                         'owner@gmail.com',
+                                                         'ownerpass',
+                                                         phone='+7(900)9001000',
+                                                         tg_id=1000000,)
+        self.client.force_authenticate(user=self.user)
+        url = reverse('habits:habit_create')
+        data = {
+            'place': 'test_place',
+            'time_to_do': '18:41',
+            'action': 'test_action',
+            'is_nice_habit': False,
+            'periodic': '2/0/0',
+            'reward': 'test_reward',
+            'time_to_done': '1:32',
+        }
+        self.client.post(url, data, format='json')
+        self.habit = Habit.objects.get(place='test_place')
+        self.task = PeriodicTask.objects.get(name__contains=f'U-{self.user.pk}')
+
+    def test_created_periodic_task(self):
+        """Тест созданной периодической задачи
+        """    
+        self.assertTrue(self.task.enabled)
+        self.assertEqual(self.task.interval.every, 2)
+        self.assertEqual(self.task.start_time.hour, 18)
+        self.assertEqual(self.task.start_time.minute, 41)
+
+    def test_update_periodic_task_two_arguments(self):
+        """Тест обновления периодической задачи оба аргумента
+        """
+        url = reverse('habits:habit_update', kwargs={'pk': self.habit.pk}) 
+        data = {
+            'time_to_do': '11:22',
+            'periodic': '0/12/0',
+        }
+        response = self.client.patch(url, data, format='json')
+        task = PeriodicTask.objects.get(name__contains=f'U-{self.user.pk}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(task.enabled)
+        self.assertEqual(task.interval.every, 12)
+        self.assertEqual(task.start_time.hour, 11)
+        self.assertEqual(task.start_time.minute, 22)
+        
+    def test_update_periodic_task_period_argument(self):
+        """Тест обновления периодической задачи интервал аргумента
+        """
+        url = reverse('habits:habit_update', kwargs={'pk': self.habit.pk}) 
+        data = {
+            'periodic': '0/0/30',
+        }
+        response = self.client.patch(url, data, format='json')
+        task = PeriodicTask.objects.get(name__contains=f'U-{self.user.pk}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(task.enabled)
+        self.assertEqual(task.interval.every, 30)
+        self.assertEqual(task.interval.period, 'minutes')
+        
+    def test_update_periodic_no_argument(self):
+        """Тест обновления периодической задачи без аргументов времени
+        """
+        url = reverse('habits:habit_update', kwargs={'pk': self.habit.pk}) 
+        data = {
+            'place': 'test_place_update',
+            'action': 'test_action_update',
+            'reward': 'test_reward_update',
+            'time_to_done': '0:11',
+        }
+        response = self.client.patch(url, data, format='json')
+        task = PeriodicTask.objects.get(name__contains=f'U-{self.user.pk}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(task.enabled)
+        self.assertEqual(self.task.interval.every, 2)
+        self.assertEqual(self.task.start_time.hour, 18)
+        self.assertEqual(self.task.start_time.minute, 41)
+        
+    def test_update_periodic_task_time_to_do_argument(self):
+        """Тест обновления периодической задачи время выполнения аргумент
+        """
+        url = reverse('habits:habit_update', kwargs={'pk': self.habit.pk}) 
+        data = {
+            'time_to_do': '3:04',
+        }
+        response = self.client.patch(url, data, format='json')
+        task = PeriodicTask.objects.get(name__contains=f'U-{self.user.pk}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(task.enabled)
+        self.assertEqual(task.start_time.hour, 3)
+        self.assertEqual(task.start_time.minute, 4)
+
+    def test_delete_periodic_task(self):
+        """Тест удаления периодической задачи
+        """
+        url = reverse('habits:habit_delete', kwargs={'pk': self.habit.pk})
+        response = self.client.delete(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Habit.objects.count(), 0)
+        self.assertEqual(PeriodicTask.objects.count(), 0)
+        
+            
+class TestTelegram(TestCase):
+    """Тесты касающиеся телеграма
+    """    
+    
+    def test_construct_petiodic(self):
+        """Тест конструктора периодичности
+        """
+        self.assertEqual(construct_periodic(1, 'days'), 'Каждый день')
+        self.assertEqual(construct_periodic(2, 'days'), 'Каждые 2 дня')
+        self.assertEqual(construct_periodic(3, 'days'), 'Каждые 3 дня')
+        self.assertEqual(construct_periodic(4, 'days'), 'Каждые 4 дня')
+        self.assertEqual(construct_periodic(5, 'days'), 'Каждые 5 дней')
+        self.assertEqual(construct_periodic(6, 'days'), 'Каждые 6 дней')
+        self.assertEqual(construct_periodic(7, 'days'), 'Каждые 7 дней')
+        self.assertEqual(construct_periodic(1, 'hours'), 'Каждый час')
+        self.assertEqual(construct_periodic(2, 'hours'), 'Каждые 2 часа')
+        self.assertEqual(construct_periodic(3, 'hours'), 'Каждые 3 часа')
+        self.assertEqual(construct_periodic(4, 'hours'), 'Каждые 4 часа')
+        self.assertEqual(construct_periodic(5, 'hours'), 'Каждые 5 часов')
+        self.assertEqual(construct_periodic(6, 'hours'), 'Каждые 6 часов')
+        self.assertEqual(construct_periodic(7, 'hours'), 'Каждые 7 часов')
+        self.assertEqual(construct_periodic(8, 'hours'), 'Каждые 8 часов')
+        self.assertEqual(construct_periodic(9, 'hours'), 'Каждые 9 часов')
+        self.assertEqual(construct_periodic(10, 'hours'), 'Каждые 10 часов')
+        self.assertEqual(construct_periodic(11, 'hours'), 'Каждые 11 часов')
+        self.assertEqual(construct_periodic(12, 'hours'), 'Каждые 12 часов')
+        self.assertEqual(construct_periodic(13, 'hours'), 'Каждые 13 часов')
+        self.assertEqual(construct_periodic(14, 'hours'), 'Каждые 14 часов')
+        self.assertEqual(construct_periodic(15, 'hours'), 'Каждые 15 часов')
+        self.assertEqual(construct_periodic(16, 'hours'), 'Каждые 16 часов')
+        self.assertEqual(construct_periodic(17, 'hours'), 'Каждые 17 часов')
+        self.assertEqual(construct_periodic(18, 'hours'), 'Каждые 18 часов')
+        self.assertEqual(construct_periodic(19, 'hours'), 'Каждые 19 часов')
+        self.assertEqual(construct_periodic(20, 'hours'), 'Каждые 20 часов')
+        self.assertEqual(construct_periodic(21, 'hours'), 'Каждый 21 час')
+        self.assertEqual(construct_periodic(22, 'hours'), 'Каждые 22 часа')
+        self.assertEqual(construct_periodic(23, 'hours'), 'Каждые 23 часа')
+        self.assertEqual(construct_periodic(1, 'minutes'), 'Каждую минуту')
+        self.assertEqual(construct_periodic(2, 'minutes'), 'Каждые 2 минуты')
+        self.assertEqual(construct_periodic(3, 'minutes'), 'Каждые 3 минуты')
+        self.assertEqual(construct_periodic(4, 'minutes'), 'Каждые 4 минуты')
+        self.assertEqual(construct_periodic(5, 'minutes'), 'Каждые 5 минут')
+        self.assertEqual(construct_periodic(6, 'minutes'), 'Каждые 6 минут')
+        self.assertEqual(construct_periodic(7, 'minutes'), 'Каждые 7 минут')
+        self.assertEqual(construct_periodic(8, 'minutes'), 'Каждые 8 минут')
+        self.assertEqual(construct_periodic(9, 'minutes'), 'Каждые 9 минут')
+        self.assertEqual(construct_periodic(10, 'minutes'), 'Каждые 10 минут')
+        self.assertEqual(construct_periodic(11, 'minutes'), 'Каждые 11 минут')
+        self.assertEqual(construct_periodic(12, 'minutes'), 'Каждые 12 минут')
+        self.assertEqual(construct_periodic(13, 'minutes'), 'Каждые 13 минут')
+        self.assertEqual(construct_periodic(14, 'minutes'), 'Каждые 14 минут')
+        self.assertEqual(construct_periodic(15, 'minutes'), 'Каждые 15 минут')
+        self.assertEqual(construct_periodic(16, 'minutes'), 'Каждые 16 минут')
+        self.assertEqual(construct_periodic(17, 'minutes'), 'Каждые 17 минут')
+        self.assertEqual(construct_periodic(18, 'minutes'), 'Каждые 18 минут')
+        self.assertEqual(construct_periodic(19, 'minutes'), 'Каждые 19 минут')
+        self.assertEqual(construct_periodic(20, 'minutes'), 'Каждые 20 минут')
+        self.assertEqual(construct_periodic(21, 'minutes'), 'Каждую 21 минуту')
+        self.assertEqual(construct_periodic(22, 'minutes'), 'Каждые 22 минуты')
+        self.assertEqual(construct_periodic(23, 'minutes'), 'Каждые 23 минуты')
+        self.assertEqual(construct_periodic(24, 'minutes'), 'Каждые 24 минуты')
+        self.assertEqual(construct_periodic(25, 'minutes'), 'Каждые 25 минут')
+        self.assertEqual(construct_periodic(26, 'minutes'), 'Каждые 26 минут')
+        self.assertEqual(construct_periodic(27, 'minutes'), 'Каждые 27 минут')
+        self.assertEqual(construct_periodic(28, 'minutes'), 'Каждые 28 минут')
+        self.assertEqual(construct_periodic(29, 'minutes'), 'Каждые 29 минут')
+        self.assertEqual(construct_periodic(30, 'minutes'), 'Каждые 30 минут')
+        self.assertEqual(construct_periodic(31, 'minutes'), 'Каждую 31 минуту')
+        self.assertEqual(construct_periodic(32, 'minutes'), 'Каждые 32 минуты')
+        self.assertEqual(construct_periodic(33, 'minutes'), 'Каждые 33 минуты')
+        self.assertEqual(construct_periodic(34, 'minutes'), 'Каждые 34 минуты')
+        self.assertEqual(construct_periodic(35, 'minutes'), 'Каждые 35 минут')
+        self.assertEqual(construct_periodic(36, 'minutes'), 'Каждые 36 минут')
+        self.assertEqual(construct_periodic(37, 'minutes'), 'Каждые 37 минут')
+        self.assertEqual(construct_periodic(38, 'minutes'), 'Каждые 38 минут')
+        self.assertEqual(construct_periodic(39, 'minutes'), 'Каждые 39 минут')
+        self.assertEqual(construct_periodic(40, 'minutes'), 'Каждые 40 минут')
+        self.assertEqual(construct_periodic(41, 'minutes'), 'Каждую 41 минуту')
+        self.assertEqual(construct_periodic(42, 'minutes'), 'Каждые 42 минуты')
+        self.assertEqual(construct_periodic(43, 'minutes'), 'Каждые 43 минуты')
+        self.assertEqual(construct_periodic(44, 'minutes'), 'Каждые 44 минуты')
+        self.assertEqual(construct_periodic(45, 'minutes'), 'Каждые 45 минут')
+        self.assertEqual(construct_periodic(46, 'minutes'), 'Каждые 46 минут')
+        self.assertEqual(construct_periodic(47, 'minutes'), 'Каждые 47 минут')
+        self.assertEqual(construct_periodic(48, 'minutes'), 'Каждые 48 минут')
+        self.assertEqual(construct_periodic(49, 'minutes'), 'Каждые 49 минут')
+        self.assertEqual(construct_periodic(50, 'minutes'), 'Каждые 50 минут')
+        self.assertEqual(construct_periodic(51, 'minutes'), 'Каждую 51 минуту')
+        self.assertEqual(construct_periodic(52, 'minutes'), 'Каждые 52 минуты')
+        self.assertEqual(construct_periodic(53, 'minutes'), 'Каждые 53 минуты')
+        self.assertEqual(construct_periodic(54, 'minutes'), 'Каждые 54 минуты')
+        self.assertEqual(construct_periodic(55, 'minutes'), 'Каждые 55 минут')
+        self.assertEqual(construct_periodic(56, 'minutes'), 'Каждые 56 минут')
+        self.assertEqual(construct_periodic(57, 'minutes'), 'Каждые 57 минут')
+        self.assertEqual(construct_periodic(58, 'minutes'), 'Каждые 58 минут')
+        self.assertEqual(construct_periodic(59, 'minutes'), 'Каждые 59 минут')
+        
+    def test_construct_time(self):
+        """Тест проверки переработки времени
+        """
+        cron = CrontabSchedule.objects.create(hour=18, minute=30)
+        day_now = date.today()
+        self.assertEqual(construct_time_to_task(time_interval=cron), datetime(year=day_now.year,
+                                                                              month=day_now.month,
+                                                                              day=day_now.day,
+                                                                              hour=18,
+                                                                              minute=30,
+                                                                              tzinfo=timezone.get_current_timezone()
+                                                                              ))
+        
         

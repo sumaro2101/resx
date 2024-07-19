@@ -28,6 +28,8 @@ load_dotenv(ENV_DIR)
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-fs+cu17imo@*zph&@)xcb=b&t83#=#l*wid)h&zaffa6^f_+av'
 
+TELEGRAM_API_KEY=find_env('TELEGRAM_API_KEY')
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -131,6 +133,17 @@ DATABASES = {
 }
 
 
+# CELERY
+
+EXPIRE_SECONDS_TASK = 24*(60**3)
+
+CELERY_BROKER_URL = find_env('BROKER_URL')
+CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379'
+CELERY_RESULT_EXTENDED = True
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BEAT_SCHEDULER = find_env('DEFAULT_DATABASE_BEAT')
+
+
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
@@ -159,7 +172,8 @@ TIME_ZONE = 'Asia/Omsk'
 
 USE_I18N = True
 
-USE_TZ = True
+USE_TZ = False
+
 
 
 # Static files (CSS, JavaScript, Images)

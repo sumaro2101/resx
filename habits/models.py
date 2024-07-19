@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 from django.db import models
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -78,6 +76,7 @@ class Habit(models.Model):
     class Meta:
         verbose_name = _("Habit")
         verbose_name_plural = _("Habits")
+        ordering = ('-time_to_do__hour',)
 
     def __str__(self):
         return f'{self.action}: {self.time_to_do}'

@@ -12,3 +12,14 @@ class IsCurrentUser(BasePermission):
         pk = view.kwargs['pk']
         instance = view.queryset.get(pk=pk)
         return request.user == instance.owner
+
+
+class IsAdmin(BaseException):
+    """Класс доступа администратора
+    """    
+    message = {'published': 'Данную привычку может просматривать только владелец'}
+    code = status.HTTP_403_FORBIDDEN
+    
+    def has_permission(self, request, view):
+        return request.user.is_superuser
+    

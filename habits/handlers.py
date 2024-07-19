@@ -23,13 +23,13 @@ class HandleInterval:
                 raise ValueError(f'{value}, не соответствует стандарту по типу: "30/0/0"')
             
         if not value:
-            return 1, 'DAYS'
+            return 1, IntervalSchedule.DAYS
         elif int(days):
-            return int(days), 'DAYS'
+            return int(days), IntervalSchedule.DAYS
         elif int(hours):
-            return int(hours), 'HOURS'
+            return int(hours), IntervalSchedule.HOURS
         elif int(minute):
-            return int(minute), 'MINUTES'
+            return int(minute), IntervalSchedule.MINUTES
     
     @classmethod
     def _get_or_set_interval(cls, value: int, type_of_time: str) -> IntervalSchedule:
