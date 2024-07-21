@@ -9,6 +9,7 @@ from habits.serializers import (HabitCreateSearilizer,
                                 HabitRetieveSearilizer,
                                 )
 from habits.permissions import IsCurrentUser, IsAdmin
+from habits.paginators import PaginateHabits
 
 
 class HabitCreateAPIView(generics.CreateAPIView):
@@ -41,6 +42,7 @@ class HabitListAPIView(generics.ListAPIView):
     """
     queryset = Habit.objects.filter(Q(is_published=True)).select_related('owner', 'time_to_do', 'related_habit', 'periodic',)
     serializer_class = HabitRetieveSearilizer
+    pagination_class = PaginateHabits
     
     
 class HabitUserListAPIView(generics.ListAPIView):
@@ -48,6 +50,7 @@ class HabitUserListAPIView(generics.ListAPIView):
     """
     queryset = Habit.objects.get_queryset().select_related('owner', 'time_to_do', 'related_habit', 'periodic',)
     serializer_class = HabitRetieveSearilizer
+    pagination_class = PaginateHabits
     
     def get_queryset(self):
         queryset = super().get_queryset()
