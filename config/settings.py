@@ -14,6 +14,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from .utils import find_env
+from django.utils import timezone
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,7 +30,9 @@ load_dotenv(ENV_DIR)
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-fs+cu17imo@*zph&@)xcb=b&t83#=#l*wid)h&zaffa6^f_+av'
 
-TELEGRAM_API_KEY=find_env('TELEGRAM_API_KEY')
+TELEGRAM_API_KEY = find_env('TELEGRAM_API_KEY')
+
+TELEGRAM_BOT_URL = find_env('TELEGRAM_BOT_URL')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -172,8 +176,9 @@ TIME_ZONE = 'Asia/Omsk'
 
 USE_I18N = True
 
-USE_TZ = False
+USE_TZ = True
 
+LOCAL_TIME_NOW = timezone.localtime(timezone.now())
 
 
 # Static files (CSS, JavaScript, Images)

@@ -3,8 +3,6 @@ import json
 from rest_framework import serializers
 
 from django.db import transaction
-from django.conf import settings
-from django_celery_beat.models import PeriodicTask
 
 from habits.models import Habit
 from habits.validators import (ValidateInterval,
@@ -38,6 +36,7 @@ class HabitCreateSearilizer(serializers.ModelSerializer):
                   'reward',
                   'time_to_done',
                   'is_published',
+                  'url_bot',
                   )
         validators = (ValidateInterval('periodic'),
                       ValidateDateDay('time_to_do'),
@@ -67,7 +66,7 @@ class HabitCreateSearilizer(serializers.ModelSerializer):
         instance = super().create(validated_data)
         user = self.context['request'].user
         create_periodic_task(user, instance, validated_data)
-        validated_data['periodic'] = f'every {validated_data["periodic"].every} {validated_data["periodic"].period}'
+        validated_data['periodic'] = f'{validated_data["periodic"].day_of_month}/{validated_data["periodic"].hour}/{validated_data["periodic"].minute}'
         validated_data['time_to_do'] = f'{validated_data["time_to_do"].hour}:{validated_data["time_to_do"].minute}'
         return validated_data
     
@@ -111,6 +110,7 @@ class HabitRelatedRetieveSearilizer(serializers.ModelSerializer):
                   'reward',
                   'time_to_done',
                   'is_published',
+                  'url_bot',
                   )
 
 
@@ -132,5 +132,6 @@ class HabitRetieveSearilizer(serializers.ModelSerializer):
                   'reward',
                   'time_to_done',
                   'is_published',
+                  'url_bot',
                   )
     

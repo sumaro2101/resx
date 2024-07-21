@@ -1,7 +1,9 @@
 from django.db import models
+from django.db.models.functions import Cast
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import get_user_model
+from django.conf import settings
 
 from django_celery_beat.models import CrontabSchedule, IntervalSchedule
 
@@ -22,6 +24,7 @@ class Habit(models.Model):
     
     time_to_do = models.ForeignKey(CrontabSchedule,
                                    verbose_name='время выполнения привычки',
+                                   related_name='cron',
                                    on_delete=models.CASCADE,
                                    help_text='Установленное время в которое будет выполнена привычка,\
                                        пример использования: 8:40, 00:30, 18:40',
@@ -47,7 +50,7 @@ class Habit(models.Model):
                                       null=True,
                                       )
     
-    periodic = models.ForeignKey(IntervalSchedule,
+    periodic = models.ForeignKey(CrontabSchedule,
                                 verbose_name='периодичность',
                                     help_text='Установленная периодичность для выполнения,\
                                         устанавливается так же для отправки напоминаний.\
@@ -73,10 +76,18 @@ class Habit(models.Model):
                                        help_text='Значение публичности, значение True дает возможность видеть эту привычку другим пользователям',
                                        )
     
+    url_bot = models.URLField(max_length=200,
+                              verbose_name='адресс бота',
+                              help_text='адресс телеграмм бота для комуникации',
+                              default=settings.TELEGRAM_BOT_URL,
+                              )
+    
     class Meta:
         verbose_name = _("Habit")
         verbose_name_plural = _("Habits")
-        ordering = ('-time_to_do__hour',)
+        ordering = [
+            Cast('time_to_do__hour', output_field=models.IntegerField()),
+            ]
 
     def __str__(self):
         return f'{self.action}: {self.time_to_do}'
