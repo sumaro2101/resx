@@ -5,15 +5,14 @@ from rest_framework import serializers
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
-from django.db.models import Model
 
 from users.validators import ValidatorSetPasswordUser
 
+
 class UserProfileSerializer(serializers.ModelSerializer):
     """Сеарилизатор Профиля пользователя
-    """    
-    
-    
+    """
+
     class Meta:
         model = get_user_model()
         fields = ('id',
@@ -27,13 +26,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
                   'is_staff',
                   'groups',
                   )
-        
-        
+
+
 class UserProfileCreateSerializer(serializers.ModelSerializer):
     """Сериализатор создания Профиля
     """
     password_check = serializers.CharField(write_only=True, required=True,)
-    
+
     class Meta:
         model = get_user_model()
         fields = ('id',
@@ -45,8 +44,10 @@ class UserProfileCreateSerializer(serializers.ModelSerializer):
                   'password',
                   'password_check',
                   )
-        validators = [ValidatorSetPasswordUser(['password', 'password_check'])]
-        
+        validators = [ValidatorSetPasswordUser(['password',
+                                                'password_check',
+                                                ])]
+
     def _create_user(self,
                      model: AbstractUser,
                      password: str,
@@ -60,8 +61,9 @@ class UserProfileCreateSerializer(serializers.ModelSerializer):
             validated_data (Dict): Валидная информация
 
         Returns:
-            Union[AbstractUser, None]: Возращает созданного пользователя в случае успеха
-        """        
+            Union[AbstractUser, None]: Возращает созданного пользователя
+            в случае успеха
+        """
         try:
             instance = model._default_manager.create(**validated_data)
             instance.set_password(password)
@@ -85,22 +87,22 @@ class UserProfileCreateSerializer(serializers.ModelSerializer):
                 )
             )
             raise TypeError(msg)
-            
+
         return instance
-    
+
     def create(self, validated_data: Dict) -> AbstractUser:
         """Точка входа для создания пользователя
-        """        
+        """
         ModelClass = self.Meta.model
         password = validated_data.pop('password_check')
-        
+
         return self._create_user(ModelClass, password, validated_data)
-        
+
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     """Редактирование профиля пользователя
     """
-    class Meta:  
+    class Meta:
         model = get_user_model()
         fields = ('username',
                   'first_name',
