@@ -14,6 +14,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from .utils import find_env
+from django.utils import timezone
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,9 +28,11 @@ load_dotenv(ENV_DIR)
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-fs+cu17imo@*zph&@)xcb=b&t83#=#l*wid)h&zaffa6^f_+av'
+SECRET_KEY = find_env('SECRET_KEY')
 
-TELEGRAM_API_KEY=find_env('TELEGRAM_API_KEY')
+TELEGRAM_API_KEY = find_env('TELEGRAM_API_KEY')
+
+TELEGRAM_BOT_URL = find_env('TELEGRAM_BOT_URL')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -65,12 +69,16 @@ INSTALLED_APPS = [
     #django-filters,
     'django_filters',
     
+    #CORS
+    'corsheaders',
+    
     # custom apps
     'users.apps.UsersConfig',
     'habits.apps.HabitsConfig',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -163,6 +171,17 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+#CORS
+
+CORS_ALLOWED_ORIGINS = ['http://localhost:8000',
+                        'https://api.telegram.org']
+
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000',
+                        ]
+
+CORS_ALLOW_ALL_ORIGINS = False
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
@@ -172,8 +191,9 @@ TIME_ZONE = 'Asia/Omsk'
 
 USE_I18N = True
 
-USE_TZ = False
+USE_TZ = True
 
+LOCAL_TIME_NOW = timezone.localtime(timezone.now())
 
 
 # Static files (CSS, JavaScript, Images)
