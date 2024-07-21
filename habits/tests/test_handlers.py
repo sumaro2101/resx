@@ -8,7 +8,6 @@ from habits.handlers import HandleInterval, HandleTimeToDo, HandleTimeToDone, Ha
 from habits.validators import (ValidateInterval,
                                ValidateDateDay,
                                ValidateDateMinute,
-
                                )
 
 

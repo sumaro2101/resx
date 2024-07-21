@@ -28,7 +28,7 @@ load_dotenv(ENV_DIR)
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-fs+cu17imo@*zph&@)xcb=b&t83#=#l*wid)h&zaffa6^f_+av'
+SECRET_KEY = find_env('SECRET_KEY')
 
 TELEGRAM_API_KEY = find_env('TELEGRAM_API_KEY')
 
@@ -69,12 +69,16 @@ INSTALLED_APPS = [
     #django-filters,
     'django_filters',
     
+    #CORS
+    'corsheaders',
+    
     # custom apps
     'users.apps.UsersConfig',
     'habits.apps.HabitsConfig',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -165,6 +169,17 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+
+#CORS
+
+CORS_ALLOWED_ORIGINS = ['http://localhost:8000',
+                        'https://api.telegram.org']
+
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000',
+                        ]
+
+CORS_ALLOW_ALL_ORIGINS = False
 
 
 # Internationalization
