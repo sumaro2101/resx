@@ -21,7 +21,7 @@ class HandleInterval:
         if value:
             try:
                 days, hours, minute = value.split('/')
-            except:
+            except ValueError:
                 raise ValueError(
                     f'{value}, не соответствует стандарту по типу: "30/0/0"',
                     )
@@ -120,7 +120,7 @@ class HandleTimeToDo:
             hour, minute = [int(value)
                             for value
                             in value.split(':')]
-        except:
+        except ValueError:
             ValueError(
                 'Время должно быть конструкцией тип: "23:30"',
                 )
@@ -182,7 +182,7 @@ class HandleTimeToDone:
             minutes, seconds = [int(value)
                                 for value
                                 in value.split(':')]
-        except:
+        except ValueError:
             raise ValueError(
                 'Время должно быть конструкцией тип: "01:30"',
                 )

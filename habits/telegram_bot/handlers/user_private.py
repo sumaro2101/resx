@@ -7,6 +7,7 @@ from aiogram.enums import ParseMode
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.urls import reverse
+from django.core.exceptions import ObjectDoesNotExist
 
 from django_celery_beat.models import PeriodicTask
 
@@ -39,7 +40,7 @@ async def list_habits(message: types.Message):
     """
     try:
         user = await get_user_model().objects.aget(tg_id=message.chat.id)
-    except:
+    except ObjectDoesNotExist:
         await message.answer(
             f'{message.from_user.first_name}, вы не авторизованы',
             )
@@ -66,7 +67,7 @@ async def next(message: types.Message):
     """
     try:
         user = await get_user_model().objects.aget(tg_id=message.chat.id)
-    except:
+    except ObjectDoesNotExist:
         await message.answer(
             f'{message.from_user.first_name}, вы не авторизованы',
             )
@@ -95,7 +96,7 @@ async def info(message: types.Message):
         user = await get_user_model().objects.aget(
             tg_id=message.chat.id,
             )
-    except:
+    except ObjectDoesNotExist:
         await message.answer(
             f'{message.from_user.first_name}, вы не авторизованы',
             )
@@ -110,12 +111,12 @@ async def phone(message: types.Message):
 
     try:
         user = await get_user_model().objects.aget(phone=phone)
-    except:
+    except ObjectDoesNotExist:
         await message.answer(
-            f'{message.from_user.first_name}, '
-            'мы не смогли найти вашу учетную запись, '
-            'возможно вы до сих по не зарегистрированы, '
-            f'если это так перейдите по ссылке: {REGISTER_USER_URL}',
+            f'{message.from_user.first_name}\
+            мы не смогли найти вашу учетную запись\
+            возможно вы до сих по не зарегистрированы\
+            если это так перейдите по ссылке: {REGISTER_USER_URL}',
             )
         return
 

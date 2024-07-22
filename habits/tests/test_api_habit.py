@@ -51,7 +51,7 @@ class TestAPIHabit(APITestCase):
                                          "action": "test_action",
                                          "is_nice_habit": False,
                                          "related_habit": None,
-                                         "periodic": "*/2/*/*",
+                                         "periodic": "Каждые 2 дня",
                                          "reward": "test_reward",
                                          "time_to_done": "0:01:32",
                                          })

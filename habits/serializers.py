@@ -13,6 +13,7 @@ from habits.validators import (ValidateInterval,
                                )
 from habits.handlers import HandleInterval, HandleTimeToDo, HandleTimeToDone
 from habits.services import create_periodic_task, update_periodic_task
+from habits.telegram_bot.utils import construct_periodic
 
 
 class HabitCreateSearilizer(serializers.ModelSerializer):
@@ -84,10 +85,13 @@ class HabitCreateSearilizer(serializers.ModelSerializer):
         instance = super().create(validated_data)
         user = self.context['request'].user
         create_periodic_task(user, instance, validated_data)
-
-        validated_data['periodic'] = f'{validated_data["periodic"].day_of_month}/{validated_data["periodic"].hour}/{validated_data["periodic"].minute}'
-
-        validated_data['time_to_do'] = f'{validated_data["time_to_do"].hour}:{validated_data["time_to_do"].minute}'
+        min_ = validated_data["periodic"].minute
+        hour = validated_data["periodic"].hour
+        day_of_month = validated_data["periodic"].day_of_month
+        periodic = construct_periodic(min_, hour, day_of_month)
+        t_to_do = validated_data['time_to_do']
+        validated_data['periodic'] = f'{periodic}'
+        validated_data['time_to_do'] = f'{t_to_do.hour}:{t_to_do.minute}'
         return validated_data
 
     def update(self, instance, validated_data):
@@ -120,7 +124,7 @@ class HabitCreateSearilizer(serializers.ModelSerializer):
                         ralated_habit.related_habit.update(
                             is_published=is_published_changed,
                             )
-                    except:
+                    except AttributeError:
                         pass
         return instance
 

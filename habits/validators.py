@@ -56,7 +56,7 @@ class ValidateInterval:
                                  for value
                                  in value.split('/')
                                  ]
-        except:
+        except ValueError:
             raise ValidationError(
                 {self.field:
                     f'{value} должен быть интервалом '
@@ -151,7 +151,7 @@ class ValidateDateTwoPart:
                 )
         try:
             minute, seconds = date.split(':')
-        except:
+        except ValueError:
             raise ValidationError(
                 {
                     self.date:
@@ -167,7 +167,7 @@ class ValidateDateTwoPart:
                 for value
                 in [minute, seconds]
                 ]
-        except:
+        except ValueError:
             raise ValidationError(
                 {self.date: 'Значения в времени могут быть только циферными'},
                 )

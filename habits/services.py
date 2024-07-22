@@ -9,6 +9,7 @@ from django_celery_beat.models import CrontabSchedule, PeriodicTask
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 
 from config.utils import find_env
 from habits.models import Habit
@@ -101,7 +102,7 @@ def update_periodic_task(instance: Habit,
         task: PeriodicTask = PeriodicTask.objects.get(
             name__contains=f'_{instance.pk}',
             )
-    except:
+    except ObjectDoesNotExist:
         return
 
     time_to_do = validated_data.get(
@@ -143,7 +144,7 @@ def construct_message(id_habit: str, id_chat: str) -> None:
 
     try:
         habit = Habit.objects.get(pk=id_habit)
-    except:
+    except ObjectDoesNotExist:
         params.update(
             {'text':
                 f'Привычка по ID {id_habit} не была найдена, '
@@ -164,6 +165,7 @@ def construct_message(id_habit: str, id_chat: str) -> None:
         habit.periodic.day_of_month,
         )
     current_time = settings.LOCAL_TIME_NOW
+    time_sft = current_time.strftime("%H:%M")
     if not habit.reward:
         related = habit.related_habit
         if related:
@@ -176,7 +178,7 @@ def construct_message(id_habit: str, id_chat: str) -> None:
                 Bold('Награда: приятная привычка'),
                 Bold(
                     f'Актуальное время привычки \
-                        {current_time.strftime("%H:%M")}',
+                        {time_sft}',
                     ),
                 f'Где выполняем: {related.place}',
                 f'Что делаем: {related.action}',
@@ -191,7 +193,7 @@ def construct_message(id_habit: str, id_chat: str) -> None:
     text = as_list(
         as_marked_section(
             Bold(title),
-            Bold(f'Актуальное время привычки {current_time.strftime("%H:%M")}'),
+            Bold(f'Актуальное время привычки {time_sft}'),
             marker='⏱️ ',
         ),
         as_marked_section(
