@@ -11,21 +11,40 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
+from dotenv import load_dotenv
+
+from .utils import find_env
+from django.utils import timezone
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_DIR = Path(__file__).resolve() / '.env'
+
+load_dotenv(ENV_DIR)
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-fs+cu17imo@*zph&@)xcb=b&t83#=#l*wid)h&zaffa6^f_+av'
+SECRET_KEY = find_env('SECRET_KEY')
+
+TELEGRAM_API_KEY = find_env('TELEGRAM_API_KEY')
+
+TELEGRAM_BOT_URL = find_env('TELEGRAM_BOT_URL')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
+
+
+# Swagger
+
+SWAGGER_SETTINGS = {
+    'VALIDATOR_URL': 'http://127.0.0.1:8000'
+}
 
 
 # Application definition
@@ -37,9 +56,23 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # redoc
+    'drf_yasg',
+    # celery
+    'django_celery_beat',
+    # django-phone,
+    'phonenumber_field',
+    # django-filters,
+    'django_filters',
+    # CORS
+    'corsheaders',
+    # custom apps
+    'users.apps.UsersConfig',
+    'habits.apps.HabitsConfig',
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -70,15 +103,48 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
+# rest-framework
+_page_paginator = 'rest_framework.pagination.PageNumberPagination'
+
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': _page_paginator,
+    'PAGE_SIZE': 20,
+    'DEFAULT_FILTER_BACKENDS': (
+        'django_filters.rest_framework.DjangoFilterBackend',
+    ),
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
+
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': find_env('DB_NAME'),
+        'HOST': find_env('DB_HOST'),
+        'PORT': find_env('DB_PORT'),
+        'USER': find_env('DB_USER'),
+        'PASSWORD': find_env('DB_PASSWORD')
     }
 }
+
+
+# CELERY
+
+EXPIRE_SECONDS_TASK = 24*(60**3)
+
+CELERY_BROKER_URL = find_env('BROKER_URL')
+CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379'
+CELERY_RESULT_EXTENDED = True
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BEAT_SCHEDULER = find_env('DEFAULT_DATABASE_BEAT')
 
 
 # Password validation
@@ -100,16 +166,27 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# CORS
+
+CORS_ALLOWED_ORIGINS = ['http://localhost:8000', 'https://api.telegram.org']
+
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000',]
+
+CORS_ALLOW_ALL_ORIGINS = False
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'ru'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Omsk'
 
 USE_I18N = True
 
 USE_TZ = True
+
+LOCAL_TIME_NOW = timezone.localtime(timezone.now())
 
 
 # Static files (CSS, JavaScript, Images)
@@ -121,3 +198,5 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+AUTH_USER_MODEL = 'users.user'
