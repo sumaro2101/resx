@@ -1,15 +1,17 @@
-from typing import Union
-
 from django.db.models import QuerySet, Q
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 
 from habits.models import Habit
 
-def construct_periodic(minute: str, hour: str, day_of_month: str) -> str:
+
+def construct_periodic(minute: str,
+                       hour: str,
+                       day_of_month: str,
+                       ) -> str:
     """Создает текстовое представление из интервала
     """
-    
+
     match minute, hour, day_of_month:
         case '*', '*', day_of_month:
             match day_of_month := int(day_of_month.split('/')[-1]):
@@ -33,36 +35,64 @@ def construct_periodic(minute: str, hour: str, day_of_month: str) -> str:
             match minute := int(minute.split('/')[-1]):
                 case 1:
                     return 'Каждую минуту'
-                case 2 | 3 | 4 | 22 | 23 | 24 | 32 | 33 | 34 | 42 | 43 | 44 | 52 | 53 | 54:
+                case (2 | 3 | 4 | 22 | 23 | 24 | 32 |
+                      33 | 34 | 42 | 43 | 44 | 52 | 53 | 54):
                     return f'Каждые {minute} минуты'
                 case 21 | 31 | 41 | 51:
                     return f'Каждую {minute} минуту'
                 case _:
                     return f'Каждые {minute} минут'
- 
-               
+
+
 async def get_list_habits(list_of_habits: QuerySet[Habit]) -> str:
     """Конвертация списка привычек в текст
-    """    
+    """
     text = ''
-    
+
     async for habit in list_of_habits:
-        time = f"{habit.time_to_do.hour}" + ":" + (f"0{habit.time_to_do.minute}" if int(habit.time_to_do.minute) < 10 else habit.time_to_do.minute)
-        title = f"😌 <b>Приятная привычка</b>" if habit.is_nice_habit else "🧐 <b>Полезная привычка</b>"
-        text += f'{title}\n👉 Что делаем: {habit.action}\n⏱️ В какое время: {time}\n⏲️ Периодичность: {construct_periodic(habit.periodic.minute, habit.periodic.hour, habit.periodic.day_of_month)}\n\n'
+        hour = habit.time_to_do.hour
+        min_ = habit.time_to_do.minute
+        day_of_month = habit.periodic.day_of_month
+        periodic = construct_periodic(min_, hour, day_of_month)
+        time = f"{hour}" + ":" + (f"0{min_}" if int(min_) < 10 else min_)
+
+        title = "😌 <b>Приятная привычка</b>" if\
+            habit.is_nice_habit else\
+                "🧐 <b>Полезная привычка</b>"
+
+        text += f'''{title}
+👉 Что делаем: {habit.action}
+⏱️ В какое время: {time}
+⏲️ Периодичность: {periodic}
+
+'''
     return text
 
 
 async def get_next_habit(list_of_habits: QuerySet[Habit]) -> str:
     """Вывод следующей привычки
-    """    
+    """
     local_time = settings.LOCAL_TIME_NOW
-    
-    next_habit : Habit = await list_of_habits.filter(Q(time_to_do__hour__gte=local_time.hour)).afirst()
+
+    next_habit: Habit = await list_of_habits.filter(
+        Q(time_to_do__hour__gte=local_time.hour),
+        ).afirst()
     if next_habit:
-        time = f"{next_habit.time_to_do.hour}" + ":" + (f"0{next_habit.time_to_do.minute}" if int(next_habit.time_to_do.minute) < 10 else next_habit.time_to_do.minute)
-        title = f"😌 <b>Приятная привычка</b>" if next_habit.is_nice_habit else "🧐 <b>Полезная привычка</b>"
-        text = f'<b>Следующая привычка</b>\n{title}\n👉 Что делаем: {next_habit.action}\n⏱️ В какое время: {time}\n⏲️ Периодичность: {construct_periodic(next_habit.periodic.minute, next_habit.periodic.hour, next_habit.periodic.day_of_month)}\n\n'
+        hour = next_habit.time_to_do.hour
+        min_ = next_habit.time_to_do.minute
+        day_of_month = next_habit.periodic.day_of_month
+
+        time = f"{hour}" + ":" + (f"0{min_}" if int(min_) < 10 else min_)
+        periodic = construct_periodic(min_, hour, day_of_month)
+        title = "😌 <b>Приятная привычка</b>" if\
+            next_habit.is_nice_habit else\
+                "🧐 <b>Полезная привычка</b>"
+
+        text = f'''<b>Следующая привычка</b>
+{title}
+👉 Что делаем: {next_habit.action}
+⏱️ В какое время: {time}
+⏲️ Периодичность: {periodic}'''
     else:
         text = 'На сегодня привычек больше нет'
 
@@ -71,10 +101,13 @@ async def get_next_habit(list_of_habits: QuerySet[Habit]) -> str:
 
 async def get_info(user: AbstractUser) -> str:
     """Создание информации о пользователе
-    """    
-    text = f'Вы зарегистрированы на сайте под именем <b>{user.get_username()}</b>\n\
-📧 Ваш эмеил: {user.email}\n\
-📱 Ваш телефон: {user.phone}\n\
-- Количество полезных привычек: {await user.habit_set.filter(is_nice_habit=False).acount()}\n\
-- Количество приятных привычек: {await user.habit_set.filter(is_nice_habit=True).acount()}'
+    """
+    habits = await user.habit_set.filter(is_nice_habit=False).acount()
+    nice_habits = await user.habit_set.filter(is_nice_habit=True).acount()
+    text = f'''Вы зарегистрированы на сайте под именем
+<b>{user.get_username()}</b>
+📧 Ваш эмеил: {user.email}
+📱 Ваш телефон: {user.phone}
+- Количество полезных привычек: {habits}
+- Количество приятных привычек: {nice_habits}'''
     return text

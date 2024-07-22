@@ -56,22 +56,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
     # redoc
     'drf_yasg',
-    
-    #celery
+    # celery
     'django_celery_beat',
-    
     # django-phone,
     'phonenumber_field',
-    
-    #django-filters,
+    # django-filters,
     'django_filters',
-    
-    #CORS
+    # CORS
     'corsheaders',
-    
     # custom apps
     'users.apps.UsersConfig',
     'habits.apps.HabitsConfig',
@@ -110,9 +104,10 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 # rest-framework
+_page_paginator = 'rest_framework.pagination.PageNumberPagination'
 
 REST_FRAMEWORK = {
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': _page_paginator,
     'PAGE_SIZE': 20,
     'DEFAULT_FILTER_BACKENDS': (
         'django_filters.rest_framework.DjangoFilterBackend',
@@ -171,13 +166,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-#CORS
+# CORS
 
-CORS_ALLOWED_ORIGINS = ['http://localhost:8000',
-                        'https://api.telegram.org']
+CORS_ALLOWED_ORIGINS = ['http://localhost:8000', 'https://api.telegram.org']
 
-CSRF_TRUSTED_ORIGINS = ['http://localhost:8000',
-                        ]
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000',]
 
 CORS_ALLOW_ALL_ORIGINS = False
 

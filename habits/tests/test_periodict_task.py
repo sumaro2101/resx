@@ -11,12 +11,11 @@ from habits.models import Habit
 
 class TestPeriodicTask(APITestCase):
     """Тесты преодических задач
-    """    
+    """
     def setUp(self):
         self.user = get_user_model().objects.create_user('owner',
                                                          'owner@gmail.com',
                                                          'ownerpass',
-                                                         phone='+7(900)9001000',
                                                          tg_id=1000000,)
         self.client.force_authenticate(user=self.user)
         url = reverse('habits:habit_create')
@@ -31,11 +30,13 @@ class TestPeriodicTask(APITestCase):
         }
         self.client.post(url, data, format='json')
         self.habit = Habit.objects.get(place='test_place')
-        self.task = PeriodicTask.objects.get(name__contains=f'U-{self.user.pk}')
+        self.task = PeriodicTask.objects.get(
+            name__contains=f'U-{self.user.pk}',
+            )
 
     def test_created_periodic_task(self):
         """Тест созданной периодической задачи
-        """    
+        """
         self.assertTrue(self.task.enabled)
         self.assertEqual(self.habit.time_to_do.hour, '18')
         self.assertEqual(self.task.crontab.day_of_month, '*/2')
@@ -45,7 +46,7 @@ class TestPeriodicTask(APITestCase):
     def test_update_periodic_task_two_arguments(self):
         """Тест обновления периодической задачи оба аргумента
         """
-        url = reverse('habits:habit_update', kwargs={'pk': self.habit.pk}) 
+        url = reverse('habits:habit_update', kwargs={'pk': self.habit.pk})
         data = {
             'time_to_do': '11:22',
             'periodic': '0/12/0',
@@ -57,11 +58,11 @@ class TestPeriodicTask(APITestCase):
         self.assertEqual(task.crontab.hour, '*/12')
         self.assertEqual(task.start_time.hour, 5)
         self.assertEqual(task.start_time.minute, 22)
-        
+
     def test_update_periodic_task_period_argument(self):
         """Тест обновления периодической задачи интервал аргумента
         """
-        url = reverse('habits:habit_update', kwargs={'pk': self.habit.pk}) 
+        url = reverse('habits:habit_update', kwargs={'pk': self.habit.pk})
         data = {
             'periodic': '0/0/30',
         }
@@ -70,11 +71,11 @@ class TestPeriodicTask(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(task.enabled)
         self.assertEqual(task.crontab.minute, '*/30')
-        
+
     def test_update_periodic_no_argument(self):
         """Тест обновления периодической задачи без аргументов времени
         """
-        url = reverse('habits:habit_update', kwargs={'pk': self.habit.pk}) 
+        url = reverse('habits:habit_update', kwargs={'pk': self.habit.pk})
         data = {
             'place': 'test_place_update',
             'action': 'test_action_update',
@@ -88,11 +89,11 @@ class TestPeriodicTask(APITestCase):
         self.assertEqual(self.task.crontab.day_of_month, '*/2')
         self.assertEqual(self.task.start_time.hour, 12)
         self.assertEqual(self.task.start_time.minute, 41)
-        
+
     def test_update_periodic_task_time_to_do_argument(self):
         """Тест обновления периодической задачи время выполнения аргумент
         """
-        url = reverse('habits:habit_update', kwargs={'pk': self.habit.pk}) 
+        url = reverse('habits:habit_update', kwargs={'pk': self.habit.pk})
         data = {
             'time_to_do': '3:04',
         }
@@ -108,7 +109,7 @@ class TestPeriodicTask(APITestCase):
         """
         url = reverse('habits:habit_delete', kwargs={'pk': self.habit.pk})
         response = self.client.delete(url)
-        
+
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(Habit.objects.count(), 0)
         self.assertEqual(PeriodicTask.objects.count(), 0)

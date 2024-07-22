@@ -1,5 +1,3 @@
-import json
-
 from rest_framework import serializers
 
 from django.db import transaction
@@ -15,6 +13,7 @@ from habits.validators import (ValidateInterval,
                                )
 from habits.handlers import HandleInterval, HandleTimeToDo, HandleTimeToDone
 from habits.services import create_periodic_task, update_periodic_task
+from habits.telegram_bot.utils import construct_periodic
 
 
 class HabitCreateSearilizer(serializers.ModelSerializer):
@@ -23,7 +22,7 @@ class HabitCreateSearilizer(serializers.ModelSerializer):
     periodic = serializers.CharField(required=True)
     time_to_do = serializers.CharField(required=True)
     time_to_done = serializers.CharField(required=True)
-    
+
     class Meta:
         model = Habit
         fields = ('pk',
@@ -39,37 +38,62 @@ class HabitCreateSearilizer(serializers.ModelSerializer):
                   'url_bot',
                   )
         validators = (ValidateInterval('periodic'),
-                      ValidateDateDay('time_to_do'),
-                      ValidateDateMinute('time_to_done'),
-                      ValidatorOneValueInput(['related_habit', 'reward']),
-                      ValidatorNiceHabit('is_nice_habit', ['is_nice_habit', 'reward', 'related_habit']),
-                      ValidatorRalatedHabit('related_habit'),
-                      ValidatorRelatedHabitSomePublished('related_habit', ['related_habit', 'is_published']),
+                      ValidateDateDay(
+                          'time_to_do',
+                          ),
+                      ValidateDateMinute(
+                          'time_to_done',
+                          ),
+                      ValidatorOneValueInput(
+                          ['related_habit', 'reward'],
+                          ),
+                      ValidatorNiceHabit(
+                          'is_nice_habit',
+                          ['is_nice_habit', 'reward', 'related_habit'],
+                          ),
+                      ValidatorRalatedHabit(
+                          'related_habit',
+                          ),
+                      ValidatorRelatedHabitSomePublished(
+                          'related_habit',
+                          ['related_habit', 'is_published'],
+                          ),
                       )
-    
+
     def _handle_times(self, validated_data: dict) -> dict:
         """Точка входа в обработчик всех дат привычки
-        """        
+        """
         validated_data = validated_data
         if interval := validated_data.get('periodic'):
-            validated_data['periodic'] = HandleInterval.get_interval(interval)
-            
+            validated_data['periodic'] = HandleInterval.get_interval(
+                interval,
+                )
+
         if time_to_do := validated_data.get('time_to_do'):
-            validated_data['time_to_do'] = HandleTimeToDo.get_crontab_time(time_to_do)
-            
+            validated_data['time_to_do'] = HandleTimeToDo.get_crontab_time(
+                time_to_do,
+                )
+
         if time_to_done := validated_data.get('time_to_done'):
-            validated_data['time_to_done'] = HandleTimeToDone.get_time(time_to_done)
+            validated_data['time_to_done'] = HandleTimeToDone.get_time(
+                time_to_done,
+                )
         return validated_data
-    
+
     def create(self, validated_data):
         validated_data = self._handle_times(validated_data)
         instance = super().create(validated_data)
         user = self.context['request'].user
         create_periodic_task(user, instance, validated_data)
-        validated_data['periodic'] = f'{validated_data["periodic"].day_of_month}/{validated_data["periodic"].hour}/{validated_data["periodic"].minute}'
-        validated_data['time_to_do'] = f'{validated_data["time_to_do"].hour}:{validated_data["time_to_do"].minute}'
+        min_ = validated_data["periodic"].minute
+        hour = validated_data["periodic"].hour
+        day_of_month = validated_data["periodic"].day_of_month
+        periodic = construct_periodic(min_, hour, day_of_month)
+        t_to_do = validated_data['time_to_do']
+        validated_data['periodic'] = f'{periodic}'
+        validated_data['time_to_do'] = f'{t_to_do.hour}:{t_to_do.minute}'
         return validated_data
-    
+
     def update(self, instance, validated_data):
         is_published_changed = validated_data.get('is_published')
         validated_data = self._handle_times(validated_data)
@@ -80,24 +104,35 @@ class HabitCreateSearilizer(serializers.ModelSerializer):
                 related_habit = instance.related_habit
                 if related_habit:
                     related_habit.is_published = is_published_changed
-                    related_habit.save(update_fields=('is_published',))
-                    ralated_habit = Habit.objects.filter(related_habit=related_habit)
-                    ralated_habit.update(is_published=is_published_changed)
+                    related_habit.save(
+                        update_fields=('is_published',),
+                        )
+                    ralated_habit = Habit.objects.filter(
+                        related_habit=related_habit,
+                        )
+                    ralated_habit.update(
+                        is_published=is_published_changed,
+                        )
                 else:
                     try:
-                        ralated_habit = Habit.objects.filter(related_habit=instance)
-                        ralated_habit.update(is_published=is_published_changed)
-                        ralated_habit.related_habit.update(is_published=is_published_changed)
-                    except:
+                        ralated_habit = Habit.objects.filter(
+                            related_habit=instance,
+                            )
+                        ralated_habit.update(
+                            is_published=is_published_changed,
+                            )
+                        ralated_habit.related_habit.update(
+                            is_published=is_published_changed,
+                            )
+                    except AttributeError:
                         pass
         return instance
-        
+
 
 class HabitRelatedRetieveSearilizer(serializers.ModelSerializer):
     """Сеарилизатор вывода связанной привычки
     """
-    
-    
+
     class Meta:
         model = Habit
         fields = ('pk',
@@ -117,9 +152,10 @@ class HabitRelatedRetieveSearilizer(serializers.ModelSerializer):
 class HabitRetieveSearilizer(serializers.ModelSerializer):
     """Сеарилизатор вывода привычки
     """
-    related_habit = HabitRelatedRetieveSearilizer(source='related', many=True)
-    
-    
+    related_habit = HabitRelatedRetieveSearilizer(source='related',
+                                                  many=True,
+                                                  )
+
     class Meta:
         model = Habit
         fields = ('pk',
@@ -134,4 +170,3 @@ class HabitRetieveSearilizer(serializers.ModelSerializer):
                   'is_published',
                   'url_bot',
                   )
-    
