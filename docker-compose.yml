@@ -1,0 +1,86 @@
+services:
+  nginx:
+    build: ./compose/nginx/Dockerfile
+    volumes:
+      - .:app/
+    ports:
+      - 8013:80
+    depends_on:
+      - resx
+
+  resx:
+    build: 
+      context: .
+      dockerfile: ./compose/django/Dockerfile
+    image: config
+    command: /start
+    volumes:
+      - .:app/
+    expose:
+      - 8000
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+    
+  db:
+    image: postgres:16.3-alpine3.20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=resx
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=password
+
+  redis:
+    image: redis:7.2.5-alpine3.20
+  
+  celery_worker:
+    build: 
+      context: .
+      dockerfile: ./compose/django/Dockerfile
+    image: config
+    command: /start-celeryworker
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+      - resx
+
+  celery_beat:
+    build: 
+      context: .
+      dockerfile: ./compose/django/Dockerfile
+    image: config
+    command: /start-celerybeat
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+      - resx
+  
+  telegram:
+    build: 
+      context: .
+      dockerfile: ./compose/django/Dockerfile
+    image: habits
+    command: /start-telegram
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+      - resx
+
+
+volumes:
+  postgres_data:
