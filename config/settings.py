@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
-from dotenv import load_dotenv
 
 from .utils import find_env
 from django.utils import timezone
@@ -19,9 +18,6 @@ from django.utils import timezone
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-ENV_DIR = Path(__file__).resolve() / '.env'
-
-load_dotenv(ENV_DIR)
 
 
 # Quick-start development settings - unsuitable for production
@@ -35,9 +31,9 @@ TELEGRAM_API_KEY = find_env('TELEGRAM_API_KEY')
 TELEGRAM_BOT_URL = find_env('TELEGRAM_BOT_URL')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Swagger
@@ -128,8 +124,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': find_env('DB_NAME'),
-        'HOST': find_env('DB_HOST'),
-        'PORT': find_env('DB_PORT'),
+        'HOST': 'db',
         'USER': find_env('DB_USER'),
         'PASSWORD': find_env('DB_PASSWORD')
     }
@@ -140,8 +135,8 @@ DATABASES = {
 
 EXPIRE_SECONDS_TASK = 24*(60**3)
 
-CELERY_BROKER_URL = find_env('BROKER_URL')
-CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379'
+CELERY_BROKER_URL = find_env('CELERY_BROKER')
+CELERY_RESULT_BACKEND = find_env('CELERY_BACKEND')
 CELERY_RESULT_EXTENDED = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BEAT_SCHEDULER = find_env('DEFAULT_DATABASE_BEAT')
@@ -168,9 +163,9 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # CORS
 
-CORS_ALLOWED_ORIGINS = ['http://localhost:8000', 'https://api.telegram.org']
+CORS_ALLOWED_ORIGINS = ['http://localhost:8013', 'https://api.telegram.org']
 
-CSRF_TRUSTED_ORIGINS = ['http://localhost:8000',]
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8013',]
 
 CORS_ALLOW_ALL_ORIGINS = False
 
@@ -192,7 +187,14 @@ LOCAL_TIME_NOW = timezone.localtime(timezone.now())
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+
+# Media files
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "mediafiles"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
