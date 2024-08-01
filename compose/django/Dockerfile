@@ -2,10 +2,13 @@ FROM python:3.11.9-slim
 
 ENV PYTHONUNBUFFERED 1
 ENV PYTHONDONTWRITEBYTECODE 1
-ENV HOME=/home/app
 ENV PYTHONPATH=/app
 
 COPY pyproject.toml .
+
+RUN adduser user \
+    && addgroup docker \
+    && adduser user docker
 
 RUN apt-get update \
     && pip install --upgrade pip \
@@ -14,6 +17,7 @@ RUN apt-get update \
     && apt-get install -y gettext \
     && apt-get install -y git \
     && pip install poetry \
+    && pip install gunicorn \
     && poetry config virtualenvs.create false \
     && poetry install --no-root \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
@@ -39,10 +43,14 @@ COPY ./compose/telegram/start /start-telegram
 RUN sed -i 's/\r$//g' /start-telegram
 RUN chmod +x /start-telegram
 
-RUN mkdir ./staticfiles \
-    && mkdir ./mediafiles
+RUN mkdir staticfiles \
+    && mkdir mediafiles
 
 WORKDIR /app
+
+RUN chown -R user:user .
+
+USER user
 
 EXPOSE 8000
 

@@ -8,5 +8,5 @@ python manage.py flush --no-input
 python manage.py makemigrations
 python manage.py migrate
 python manage.py collectstatic --no-input --clear
-flake8 --ignore=E501,F401 .
+
 gunicorn config.wsgi:application --bind 0.0.0.0:8000

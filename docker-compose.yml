@@ -1,21 +1,29 @@
 services:
   nginx:
-    build: ./compose/nginx/Dockerfile
+    restart: always
+    image: nginx:latest
     volumes:
-      - .:app/
+      - static_volume:/home/app/staticfiles
+      - media_volume:/home/app/mediafiles
+      - ./compose/nginx:/etc/nginx/conf.d
+    expose:
+      - 8080
     ports:
-      - 8013:80
+      - "80:8080"
     depends_on:
       - resx
 
   resx:
+    restart: always
     build: 
       context: .
       dockerfile: ./compose/django/Dockerfile
+    volumes:
+      - .:/app
+      - static_volume:/home/app/staticfiles
+      - media_volume:/home/app/mediafiles
     image: config
     command: /start
-    volumes:
-      - .:app/
     expose:
       - 8000
     env_file:
@@ -84,3 +92,5 @@ services:
 
 volumes:
   postgres_data:
+  static_volume:
+  media_volume:

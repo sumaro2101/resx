@@ -31,9 +31,9 @@ TELEGRAM_API_KEY = find_env('TELEGRAM_API_KEY')
 TELEGRAM_BOT_URL = find_env('TELEGRAM_BOT_URL')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Swagger
